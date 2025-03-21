@@ -6,11 +6,18 @@ from torchmetrics.classification import MulticlassAccuracy
 
 class LinearProbingBase(pl.LightningModule):
 
-    def __init__(self, feature_dim, num_classes, lr=1e-3):
+    def __init__(self,
+                 feature_dim,
+                 num_classes,
+                 class_weights=None,
+                 lr=1e-3,
+                 weight_decay=0):
         super().__init__()
         self.classifier = nn.Linear(feature_dim, num_classes)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         self.lr = lr
+        self.weight_decay = weight_decay
+        self.class_weights = class_weights
         self.train_accuracy = MulticlassAccuracy(
             num_classes=num_classes,
             average='macro',
@@ -53,7 +60,9 @@ class LinearProbingBase(pl.LightningModule):
 
     def configure_optimizers(self):
         # Only optimize the classifier parameters
-        optimizer = optim.Adam(self.classifier.parameters(), lr=self.lr)
+        optimizer = optim.Adam(self.classifier.parameters(),
+                               lr=self.lr,
+                               weight_decay=self.weight_decay)
         return optimizer
 
 

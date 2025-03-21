@@ -13,6 +13,7 @@ from histopatseg.constants import CLASS_MAPPING, SUPERCLASS_MAPPING
 from histopatseg.data.dataset import EmbeddingDataset
 from histopatseg.data.utils import split_data
 from histopatseg.models.linear_probing import LinearProbingFromEmbeddings
+from histopatseg.utils import get_class_weights
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -61,15 +62,21 @@ def get_dataloader(embeddings,
 @click.option("--num-epochs", default=10, help="Number of epochs to train.")
 @click.option("--gpu-id", default=0, help="Name of the model to use.")
 @click.option("--batch-size", default=256, help="Batch size for inference.")
+@click.option("--lr", default=0.001, show_default=True, help="LR for Adam")
+@click.option("--weight-decay",
+              default=0,
+              type=click.FLOAT,
+              show_default=True,
+              help="Weight decay for Adam")
 @click.option("--num-workers",
               default=0,
               help="Number of workers for dataloader.")
 @click.option("--task",
-              default="superclass",
+              default="class",
               show_default=True,
               help="superclass or class.")
-def main(output_path, embeddings_path, num_epochs, gpu_id, batch_size,
-         num_workers, task):
+def main(output_path, embeddings_path, num_epochs, gpu_id, batch_size, lr,
+         weight_decay, num_workers, task):
     """Simple CLI program to greet someone"""
     embeddings_path = Path(embeddings_path).resolve()
     # Parse magnification from the embeddings path
@@ -103,7 +110,13 @@ def main(output_path, embeddings_path, num_epochs, gpu_id, batch_size,
         num_workers,
     )
 
-    linear_probing = LinearProbingFromEmbeddings(embedding_dim, num_classes)
+    linear_probing = LinearProbingFromEmbeddings(
+        embedding_dim,
+        num_classes,
+        lr=lr,
+        weight_decay=weight_decay,
+        class_weights=get_class_weights(magnification),
+    )
     trainer = pl.Trainer(
         max_epochs=num_epochs,
         accelerator="gpu",

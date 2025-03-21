@@ -44,7 +44,7 @@
                 "--embeddings-path",
                 "data/processed/LungHist700_embeddings/UNI2_20x.npz",
                 "--num-epochs",
-                "1000",
+                "10",
                 "--gpu-id",
                 "0",
                 "--batch-size",
