@@ -10,6 +10,7 @@ class LinearProbingBase(pl.LightningModule):
                  feature_dim,
                  num_classes,
                  class_weights=None,
+                 backbone=None,
                  lr=1e-3,
                  weight_decay=0):
         super().__init__()
@@ -27,7 +28,8 @@ class LinearProbingBase(pl.LightningModule):
             average='macro',
         )
         self.num_classes = num_classes
-        self.save_hyperparameters()
+        self.backbone = backbone
+        self.save_hyperparameters(ignore=["backbone"])
 
     def forward(self, x):
         raise NotImplementedError
@@ -74,10 +76,6 @@ class LinearProbingFromEmbeddings(LinearProbingBase):
 
 
 class LinearProbing(LinearProbingBase):
-
-    def __init__(self, backbone, feature_dim, num_classes, lr=0.001):
-        super().__init__(feature_dim, num_classes, lr)
-        self.backbone = backbone
 
     def forward(self, x):
         # Pass inputs through the frozen backbone

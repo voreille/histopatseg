@@ -7,6 +7,8 @@ from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 import torch
 from torchvision import transforms
+import torchvision.models as models
+from torchvision.models.feature_extraction import create_feature_extractor
 
 load_dotenv()
 
@@ -26,6 +28,7 @@ def load_model(model_name, device):
                                  std=(0.211883, 0.230117, 0.177517)),
         ])
         embedding_dim = 1536
+        autocast_dtype = torch.float16
 
     elif model_name == "UNI2":
         timm_kwargs = {
@@ -49,6 +52,17 @@ def load_model(model_name, device):
         transform = create_transform(
             **resolve_data_config(model.pretrained_cfg, model=model))
         embedding_dim = 1536
+        autocast_dtype = torch.bfloat16
+
+    elif model_name == "convnext_large":
+        weights = models.ConvNeXt_Large_Weights.IMAGENET1K_V1
+        transform = weights.transforms()
+        model = models.convnext_large(weights=weights)
+        # model = create_feature_extractor(model, return_nodes=["avgpool"])
+        model.classifier = torch.nn.Flatten(1)
+        embedding_dim = 1536
+        autocast_dtype = torch.float16
+
     else:
         raise ValueError(f"No model for {model_name}.")
         # # Load your custom model from local weights
@@ -63,4 +77,4 @@ def load_model(model_name, device):
 
     model.to(device)
     model.eval()
-    return model, transform, embedding_dim
+    return model, transform, embedding_dim, autocast_dtype

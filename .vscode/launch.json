@@ -36,7 +36,7 @@
             "name": "Python: Train Linear Probing from Embeddings",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/histopatseg/training/train_linear_probing.py",
+            "program": "${workspaceFolder}/histopatseg/training/train_linear_probing_from_embeddings.py",
             "console": "integratedTerminal",
             "args": [
                 "--output-path",
@@ -52,6 +52,46 @@
                 "--num-workers",
                 "0"
             ]
-        }
+        },
+        {
+            "name": "Python: Train  Hierarchical from Embeddings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_hierarchichal.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/hierar_probe.ckpt",
+                "--embeddings-path",
+                "data/processed/LungHist700_embeddings/UNI2_20x.npz",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "256",
+                "--num-workers",
+                "0"
+            ]
+        },
+        {
+            "name": "Python: Train  Linear Probing from Tiles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_linear_probing.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/linear_probe_from_tiles.ckpt",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "256",
+                "--num-workers",
+                "12"
+            ]
+        },
     ]
 }

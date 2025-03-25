@@ -43,26 +43,31 @@ def compute_embeddings(model,
 
 @click.command()
 @click.option("--output-file", help="path to store the embeddings.")
-@click.option("--model-name", default="UNI2", help="Name of the model to use.")
+@click.option("--model-name",
+              default="UNI2",
+              show_default=True,
+              help="Name of the model to use.")
 @click.option("--magnification",
               type=click.INT,
               default=10,
+              show_default=True,
               help="Magnification level of the tiles.")
-@click.option("--gpu-id", default=0, help="Name of the model to use.")
-@click.option("--batch-size", default=256, help="Batch size for inference.")
+@click.option("--gpu-id",
+              default=0,
+              show_default=True,
+              help="Name of the model to use.")
+@click.option("--batch-size",
+              default=256,
+              show_default=True,
+              help="Batch size for inference.")
 @click.option("--num-workers",
               default=0,
+              show_default=True,
               help="Number of workers for dataloader.")
 def main(output_file, model_name, magnification, gpu_id, batch_size,
          num_workers):
     """Simple CLI program to greet someone"""
 
-    autocast_dtype_dict = {
-        "local": torch.float16,
-        "bioptimus": torch.float16,
-        "UNI2": torch.bfloat16,
-    }
-    autocast_dtype = autocast_dtype_dict[model_name]
     device = get_device(gpu_id)
 
     output_file = Path(output_file).resolve()
@@ -72,7 +77,8 @@ def main(output_file, model_name, magnification, gpu_id, batch_size,
 
     logger.info(f"Loading model {model_name} on device {device}.")
 
-    model, transform, embedding_dim = load_model(model_name, device)
+    model, transform, embedding_dim, autocast_dtype = load_model(
+        model_name, device)
 
     tile_dataset = TileDataset(tile_paths, transform=transform)
     dataloader = DataLoader(tile_dataset,
