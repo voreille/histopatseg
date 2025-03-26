@@ -93,5 +93,46 @@
                 "12"
             ]
         },
+        {
+            "name": "Python: Train MIL from Embeddings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_mil_from_embeddings.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/uni2_20x_mil.ckpt",
+                "--embeddings-path",
+                "data/processed/LungHist700_embeddings/UNI2_20x.npz",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "32",
+                "--num-workers",
+                "0"
+            ]
+        },
+        {
+            "name": "Python: Train MIL from Tiles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_mil_from_tiles.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/uni2_20x_mil_from_tiles.ckpt",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "1",
+                "--batch-size",
+                "32",
+                "--num-workers",
+                "0"
+            ]
+        },
+
     ]
 }

@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-import time
 
 import click
 from dotenv import load_dotenv
@@ -9,7 +8,6 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold
-import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
@@ -176,7 +174,7 @@ def main(output_path, magnification, num_epochs, gpu_id, batch_size, lr,
         backbone=model,
         lr=lr,
         weight_decay=weight_decay,
-        class_weights=get_class_weights(metadata=metadata, task="class_name"),
+        class_weights=get_class_weights(metadata=metadata, class_column="class_name"),
     )
 
     train_loader, val_loader, test_loader = get_dataloader(

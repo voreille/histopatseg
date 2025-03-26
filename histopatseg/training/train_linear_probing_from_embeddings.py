@@ -114,7 +114,7 @@ def main(output_path, embeddings_path, num_epochs, gpu_id, batch_size, lr,
         num_classes,
         lr=lr,
         weight_decay=weight_decay,
-        class_weights=get_class_weights(metadata=metadata, task=task),
+        class_weights=get_class_weights(metadata=metadata, class_column=task),
     )
     trainer = pl.Trainer(
         max_epochs=num_epochs,

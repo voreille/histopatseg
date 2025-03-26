@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
@@ -18,8 +20,12 @@ def get_device(gpu_id=None):
     return device
 
 
-def get_class_weights(metadata: pd.DataFrame,
-                      task: str = "class_name") -> torch.Tensor:
+def get_class_weights(
+    metadata: pd.DataFrame,
+    class_column: str = "class_name",
+    return_dict=False,
+    class_mapping=CLASS_MAPPING,
+) -> torch.Tensor:
     """
     Compute normalized class weights directly from a metadata DataFrame.
     The function filters the metadata based on the resolution (e.g., '20x' or '40x'),
@@ -42,10 +48,13 @@ def get_class_weights(metadata: pd.DataFrame,
 
     # Compute counts for each class defined in CLASS_MAPPING
     # Ensure that we cover all classes even if some counts are zero.
-    counts = {cls: (metadata[task] == cls).sum() for cls in CLASS_MAPPING}
+    counts = {
+        cls: (metadata[class_column] == cls).sum()
+        for cls in class_mapping
+    }
 
     # Order the classes based on the indices in CLASS_MAPPING
-    ordered_classes = sorted(CLASS_MAPPING, key=lambda k: CLASS_MAPPING[k])
+    ordered_classes = sorted(class_mapping, key=lambda k: class_mapping[k])
     count_array = np.array([counts.get(cls, 0) for cls in ordered_classes])
 
     # Compute frequency (ratio) per class; avoid division by zero
@@ -60,4 +69,24 @@ def get_class_weights(metadata: pd.DataFrame,
     num_classes = len(ordered_classes)
     normalized_weights = raw_weights / np.sum(raw_weights) * num_classes
 
+    if return_dict:
+        return {
+            cls: weight
+            for cls, weight in zip(ordered_classes, normalized_weights)
+        }
+
     return torch.FloatTensor(normalized_weights)
+
+
+def find_tile_path(tile_id, data_dir, recursive=False, extension=".png"):
+    data_dir = Path(data_dir).resolve()
+    filename = str(tile_id) + extension
+    if recursive:
+        matches = list(data_dir.rglob(filename))
+    else:
+        matches = list(data_dir.glob(filename))
+
+    if len(matches) != 1:
+        raise ValueError(f"Matching error for "
+                         f"{filename} with {matches} as matches.")
+    return str(matches[0])

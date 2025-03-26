@@ -6,8 +6,9 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 import torch.nn.functional as F
 from torch.optim import SGD, Adam, AdamW, RMSprop
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.classification import MulticlassAccuracy, MultilabelAccuracy
+
+# from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 def get_loss_function(loss_name, **kwargs):
@@ -109,7 +110,8 @@ def get_scheduler(optimizer, name, **kwargs):
 
     scheduler_class = schedulers_dict.get(name)
     if scheduler_class is None:
-        raise ValueError(f"Unsupported scheduler: {name}")
+        # raise ValueError(f"Unsupported scheduler: {name}")
+        return None
 
     if name == "ReduceLROnPlateau":
         return {
@@ -122,11 +124,12 @@ def get_scheduler(optimizer, name, **kwargs):
     return scheduler_class(optimizer, **kwargs)
 
 
-class AttentionAggregatorPL(pl.LightningModule):
+class BaseAttentionAggregatorPL(pl.LightningModule):
 
     def __init__(
         self,
         input_dim,
+        feature_extractor=None,
         attention_dim=128,
         hidden_dim=128,
         attention_branches=1,
@@ -145,6 +148,7 @@ class AttentionAggregatorPL(pl.LightningModule):
         self.attention_dim = attention_dim
         self.attention_branches = attention_branches
         self.num_classes = num_classes
+        self.feature_extractor = feature_extractor
 
         self.feature_projection = nn.Sequential(
             nn.Linear(self.input_dim, self.hidden_dim),
@@ -190,9 +194,12 @@ class AttentionAggregatorPL(pl.LightningModule):
             average='macro',
         )
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["feature_extractor"])
 
     def forward(self, x):
+        raise NotImplementedError("This is an abstract class.")
+
+    def forward_attention(self, x):
         """
         x: (num_patches, input_dim) - Each WSI has a variable number of patches
         """
@@ -244,26 +251,7 @@ class AttentionAggregatorPL(pl.LightningModule):
         }
 
     def step(self, batch):
-        _, embeddings, labels = batch
-        batch_outputs = []
-        batch_size = len(labels)
-
-        for embedding in embeddings:
-            outputs, _ = self(embedding)
-            batch_outputs.append(outputs)
-
-        batch_outputs = torch.stack(batch_outputs)
-
-        if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
-            labels_one_hot = F.one_hot(labels,
-                                       num_classes=self.num_classes).float()
-            loss = self.loss_fn(batch_outputs, labels_one_hot)
-        else:
-            loss = self.loss_fn(batch_outputs, labels)
-
-        preds = batch_outputs.argmax(dim=-1)
-
-        return loss, preds, labels, batch_size
+        raise NotImplementedError("This is an abstract class.")
 
     def training_step(self, batch, batch_idx):
         loss, preds, labels, batch_size = self.step(batch)
@@ -307,55 +295,81 @@ class AttentionAggregatorPL(pl.LightningModule):
         self.log("test_loss", loss, batch_size=batch_size)
         self.log(
             "test_acc",
-            get_metric(
-                task=self.task,
+            MulticlassAccuracy(
                 num_classes=self.num_classes,
                 average='macro',
             )(preds, labels).compute(),
             batch_size=batch_size,
         )
 
-    # def configure_optimizers(self):
-    #     optimizer = get_optimizer(self.parameters(), self.optimizer_name,
-    #                               **self.optimizer_kwargs)
-    #     # scheduler = get_scheduler(optimizer, self.scheduler_name,
-    #     #                           **self.scheduler_kwargs)
-
-    #     scheduler = {
-    #         "scheduler":
-    #         torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #             optimizer,
-    #             mode="min",
-    #             patience=5,
-    #             factor=0.5,
-    #         ),
-    #         "monitor":
-    #         "val_loss",
-    #         "frequency":
-    #         1
-    #     }
-    #     if isinstance(scheduler, dict):
-    #         return {"optimizer": optimizer, "lr_scheduler": scheduler}
-
-    #     return [optimizer], [scheduler]
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=1e-3,
-            weight_decay=1e-4,
-        )
-        lr_scheduler = ReduceLROnPlateau(optimizer, "min")
-        scheduler = {
-            "scheduler": lr_scheduler,
-            "reduce_on_plateau": True,
-            "monitor": "val_loss",
-            "interval": "epoch",
-            "frequency": 10,
-            "patience": 5,
-            "mode": "min",
-            "factor": 0.1,
-            "verbose": True,
-            "min_lr": 1e-8,
-            'strict': False,
-        }
+        optimizer = get_optimizer(self.parameters(), self.optimizer_name,
+                                  **self.optimizer_kwargs)
+        scheduler = get_scheduler(optimizer, self.scheduler_name,
+                                  **self.scheduler_kwargs)
+
+        if scheduler is None:
+            return optimizer
+
+        if isinstance(scheduler, dict):
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
         return [optimizer], [scheduler]
+
+
+class AttentionAggregatorFromEmbeddings(BaseAttentionAggregatorPL):
+
+    def forward(self, x):
+        return self.forward_attention(x)
+
+    def step(self, batch):
+        _, embeddings, labels = batch
+        batch_outputs = []
+        batch_size = len(labels)
+
+        for embedding in embeddings:
+            outputs, _ = self(embedding)
+            batch_outputs.append(outputs)
+
+        batch_outputs = torch.stack(batch_outputs)
+
+        if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
+            labels_one_hot = F.one_hot(labels,
+                                       num_classes=self.num_classes).float()
+            loss = self.loss_fn(batch_outputs, labels_one_hot)
+        else:
+            loss = self.loss_fn(batch_outputs, labels)
+
+        preds = batch_outputs.argmax(dim=-1)
+
+        return loss, preds, labels, batch_size
+
+
+class AttentionAggregator(BaseAttentionAggregatorPL):
+
+    def forward(self, x):
+        with torch.no_grad():
+            x = self.feature_extractor(x)
+        return self.forward_attention(x)
+
+    def step(self, batch):
+        _, tiles_set, labels = batch
+        batch_outputs = []
+        batch_size = len(labels)
+
+        for tiles in tiles_set:
+            outputs, _ = self(tiles)
+            batch_outputs.append(outputs)
+
+        batch_outputs = torch.stack(batch_outputs)
+
+        if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
+            labels_one_hot = F.one_hot(labels,
+                                       num_classes=self.num_classes).float()
+            loss = self.loss_fn(batch_outputs, labels_one_hot)
+        else:
+            loss = self.loss_fn(batch_outputs, labels)
+
+        preds = batch_outputs.argmax(dim=-1)
+
+        return loss, preds, labels, batch_size

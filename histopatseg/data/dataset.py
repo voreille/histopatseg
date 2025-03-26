@@ -102,7 +102,11 @@ class HierarchicalEmbeddingDataset(Dataset):
 
 class EmbeddingDatasetMIL(Dataset):
 
-    def __init__(self, embeddings, metadata):
+    def __init__(self,
+                 embeddings,
+                 tile_ids,
+                 metadata,
+                 class_mapping=CLASS_MAPPING):
         """
         Dataset to store precomputed embeddings and tile IDs.
 
@@ -110,10 +114,15 @@ class EmbeddingDatasetMIL(Dataset):
             embeddings (np.ndarray): Array of embeddings.
             tile_ids (list): List of tile IDs.
         """
-        self.embeddings = pd.DataFrame(embeddings)
-        self.embeddings.index = metadata.index
-        self.image_ids = metadata["original_filename"].values
-        self.metadata = metadata
+        self.embeddings = pd.DataFrame(embeddings, index=tile_ids)
+        self.metadata = metadata.loc[tile_ids].copy()
+        self.tile_ids = tile_ids
+        df_tmp = self.metadata.groupby("original_filename").agg(
+            {"class_name": "first"})
+        self.image_ids = df_tmp.index.values
+        labels = df_tmp["class_name"].values
+        self.labels = [class_mapping[label] for label in labels]
+        self.class_mapping = class_mapping
 
     @staticmethod
     def get_collate_fn_ragged():
@@ -128,4 +137,104 @@ class EmbeddingDatasetMIL(Dataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        return self.embeddings[idx], self.labels[idx]
+        image_id = self.image_ids[idx]
+        tile_ids = self.metadata[self.metadata["original_filename"] ==
+                                 self.image_ids[idx]].index
+        embeddings = self.embeddings.loc[tile_ids, :].values
+        label = self.labels[idx]
+
+        return image_id, torch.tensor(
+            embeddings, dtype=torch.float32), torch.tensor(label,
+                                                           dtype=torch.long)
+
+
+class TileDatasetMIL(Dataset):
+
+    def __init__(
+        self,
+        image_ids,
+        metadata,
+        transform=None,
+        class_mapping=CLASS_MAPPING,
+        cache_data=False,
+    ):
+        """
+        Dataset to store precomputed embeddings and tile IDs.
+
+        Args:
+            embeddings (np.ndarray): Array of embeddings.
+            tile_ids (list): List of tile IDs.
+        """
+        self.image_ids = image_ids
+        self.metadata = metadata.copy()
+        df_tmp = self.metadata.groupby("original_filename").agg(
+            {"class_name": "first"})
+        labels = df_tmp.loc[image_ids, "class_name"].values
+        self.labels = [class_mapping[label] for label in labels]
+        self.class_mapping = class_mapping
+        self.transform = transform
+
+        self.cached_tiles = None
+        if cache_data:
+            self.create_cache()
+
+    @staticmethod
+    def get_collate_fn_ragged():
+
+        def collate_fn_ragged(batch):
+            wsi_ids, embeddings, labels = zip(*batch)
+            return list(wsi_ids), list(embeddings), torch.stack(labels)
+
+        return collate_fn_ragged
+
+    def __len__(self):
+        return len(self.image_ids)
+
+    def create_cache(self):
+        self.cached_tiles = []
+        for image_id in self.image_ids:
+            self.cached_tiles.append(
+                self._load_tiles_without_transform(image_id))
+
+    def _load_tiles_without_transform(self, image_id):
+        tile_ids = self.metadata[self.metadata["original_filename"] ==
+                                 image_id].index
+
+        tiles = []
+        for tile_id in tile_ids:
+            tile_path = self.metadata.loc[tile_id, "tile_path"]
+            image = Image.open(tile_path).convert("RGB")
+            tiles.append(image)
+        return tiles
+
+    def _apply_transform(self, tiles):
+        output = []
+        for tile in tiles:
+            output.append(self.transform(tile))
+        return torch.stack(output)
+
+    def _load_tiles(self, image_id):
+        tile_ids = self.metadata[self.metadata["original_filename"] ==
+                                 image_id].index
+
+        tiles = []
+        for tile_id in tile_ids:
+            tile_path = self.metadata.loc[tile_id, "tile_path"]
+            image = Image.open(tile_path).convert("RGB")
+            if self.transform:
+                image = self.transform(image)
+            tiles.append(image)
+        return torch.stack(tiles)
+
+    def __getitem__(self, idx):
+        image_id = self.image_ids[idx]
+
+        if self.cached_tiles:
+            tiles = self.cached_tiles[idx]
+            tiles = self._apply_transform(tiles)
+        else:
+            tiles = self._load_tiles(image_id)
+
+        label = self.labels[idx]
+
+        return image_id, tiles, torch.tensor(label, dtype=torch.long)
