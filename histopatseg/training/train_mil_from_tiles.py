@@ -2,6 +2,8 @@ import logging
 import os
 from pathlib import Path
 
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import click
 from dotenv import load_dotenv
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -23,7 +25,42 @@ logger.setLevel(logging.INFO)
 load_dotenv()
 
 
-def get_augmentations():
+def get_train_augmentations():
+    # Define the random augmentations (without normalization/tensor conversion)
+    augmentations = [
+        # A.RandomResizedCrop(height=224, width=224, scale=(0.8, 1.0), p=1.0),
+        A.HorizontalFlip(p=0.5),
+        A.ColorJitter(brightness=0.2,
+                      contrast=0.2,
+                      saturation=0.2,
+                      hue=0.05,
+                      p=1.0),
+        A.ToGray(p=0.1),
+        A.GaussianBlur(blur_limit=3, sigma_limit=(0.1, 2.0), p=1.0),
+        # A.Rotate(limit=15, p=1.0),
+        A.Solarize(threshold=128, p=0.1),
+    ]
+
+    # Wrap with ReplayCompose to record and replay the random parameters.
+    return A.Compose(augmentations + [
+        A.Resize(height=224, width=224),
+        A.CenterCrop(height=224, width=224),
+        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ToTensorV2(),
+    ])
+
+
+def get_eval_transform():
+    # For evaluation, we typically just resize and normalize.
+    return A.Compose([
+        A.Resize(height=224, width=224),
+        A.CenterCrop(height=224, width=224),
+        A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ToTensorV2(),
+    ])
+
+
+def get_torchvision_augmentations():
     return [
         transforms.RandomResizedCrop(224,
                                      scale=(0.8,
@@ -182,10 +219,13 @@ def main(output_path, model_name, magnification, num_epochs, gpu_id,
         metadata,
         batch_size=batch_size,
         num_workers=num_workers,
-        transform_train=transforms.Compose(get_augmentations() + [transform]),
+        # transform_train=get_train_augmentations(),
+        # transform_eval=get_eval_transform(),
+        transform_train=transforms.Compose(get_torchvision_augmentations() +
+                                           [transform]),
         transform_eval=transform,
         class_mapping=class_mapping,
-        cache_data=False,
+        cache_data=True,
     )
     class_weights = compute_class_weights(metadata, superclass, class_mapping)
 
