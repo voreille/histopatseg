@@ -366,3 +366,29 @@ class TileDatasetMIL(Dataset):
         tiles_tensor = torch.stack(transformed_tiles)
         label = self.labels[idx]
         return image_id, tiles_tensor, torch.tensor(label, dtype=torch.long)
+
+
+class LungHist700ImageDataset(Dataset):
+
+    def __init__(self, tile_paths, transform=None):
+        """
+        Tile-level dataset that returns individual tile images from a list of paths.
+
+        Args:
+            tile_paths (list): List of paths to tile images for a WSI.
+            transform (callable, optional): Transform to apply to each tile image.
+        """
+        self.tile_paths = tile_paths
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.tile_paths)
+
+    def __getitem__(self, idx):
+        tile_path = self.tile_paths[idx]
+        image = Image.open(tile_path).convert("RGB")  # Load as PIL image
+
+        if self.transform:
+            image = self.transform(image)  # Apply augmentation
+
+        return image, self.tile_paths[idx].stem
