@@ -249,6 +249,7 @@ class MILModel(pl.LightningModule):
             tiles = self.feature_extractor_transform(tiles)
 
         embeddings = self.feature_extractor(tiles)
+
         return self.forward_attention(embeddings)
 
     def forward_attention(self, x):

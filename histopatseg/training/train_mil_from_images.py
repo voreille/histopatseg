@@ -13,6 +13,7 @@ from torchvision import transforms
 from histopatseg.constants import CLASS_MAPPING
 from histopatseg.data.dataset import LungHist700ImageDataset
 from histopatseg.data.utils import split_data_per_image
+from histopatseg.models.lora import inject_lora
 from histopatseg.models.mil_complete import MILModel
 from histopatseg.models.models import load_model
 from histopatseg.utils import get_class_weights
@@ -187,6 +188,9 @@ def main(
     print(f"Validating on {len(val_loader.dataset)} samples.")
     print(f"Testing on {len(test_loader.dataset)} samples.")
     # print(f"Class weights: {class_weights}")
+
+    model = inject_lora(model)
+    model.train()
 
     mil_model = MILModel(
         embedding_dim,

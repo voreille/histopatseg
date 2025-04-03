@@ -145,9 +145,9 @@
                 "--num-epochs",
                 "10",
                 "--gpu-id",
-                "1",
+                "0",
                 "--batch-size",
-                "32",
+                "1",
                 "--num-workers",
                 "0"
             ]

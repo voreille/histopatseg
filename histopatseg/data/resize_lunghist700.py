@@ -10,7 +10,7 @@ from tqdm import tqdm
 load_dotenv()
 
 # Example usage
-LungHist700_path = os.getenv('LUNGHIST700_RAW_PATH')
+LungHist700_path = os.getenv("LUNGHIST700_RAW_PATH")
 
 
 def extract_magnification(filename):
@@ -24,9 +24,7 @@ def extract_magnification(filename):
 
 @click.command()
 @click.option("--data-path", default=None, help="Path to LungHist700 raw dir.")
-@click.option("--output-dir",
-              default="data/preprocessed/LungHist700_20x",
-              help="output dir")
+@click.option("--output-dir", default="data/processed/LungHist700/LungHist700_20x", help="output dir")
 @click.option("--magnification", default=20, help="Desired magnification.")
 def main(data_path, output_dir, magnification):
     if data_path is None:
