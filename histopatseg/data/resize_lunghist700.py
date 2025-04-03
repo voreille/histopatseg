@@ -1,10 +1,10 @@
-from pathlib import Path
 import os
+from pathlib import Path
 import re
 
 import click
-from PIL import Image
 from dotenv import load_dotenv
+from PIL import Image
 from tqdm import tqdm
 
 load_dotenv()

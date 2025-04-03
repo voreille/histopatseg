@@ -9,7 +9,6 @@ from histopatseg.constants import CLASS_MAPPING, SUBCLASS_MAPPING, SUPERCLASS_MA
 
 
 class TileDataset(Dataset):
-
     def __init__(self, tile_paths, transform=None):
         """
         Tile-level dataset that returns individual tile images from a list of paths.
@@ -35,7 +34,6 @@ class TileDataset(Dataset):
 
 
 class LabeledTileDataset(Dataset):
-
     def __init__(self, tile_paths, metadata, transform=None):
         """
         Wrapper dataset that adds labels from metadata.
@@ -57,7 +55,6 @@ class LabeledTileDataset(Dataset):
 
 
 class EmbeddingDataset(Dataset):
-
     def __init__(self, embeddings, labels):
         """
         Dataset to store precomputed embeddings and tile IDs.
@@ -77,7 +74,6 @@ class EmbeddingDataset(Dataset):
 
 
 class HierarchicalEmbeddingDataset(Dataset):
-
     def __init__(self, embeddings, tile_ids, metadata):
         """
         Dataset to store precomputed embeddings and tile IDs.
@@ -95,20 +91,13 @@ class HierarchicalEmbeddingDataset(Dataset):
 
     def __getitem__(self, idx):
         tile_id = self.tile_ids[idx]
-        super_class = SUPERCLASS_MAPPING.get(self.metadata.loc[tile_id,
-                                                               "superclass"])
-        sub_class = SUBCLASS_MAPPING.get(
-            self.metadata.loc[tile_id, "subclass"], -1)
+        super_class = SUPERCLASS_MAPPING.get(self.metadata.loc[tile_id, "superclass"])
+        sub_class = SUBCLASS_MAPPING.get(self.metadata.loc[tile_id, "subclass"], -1)
         return self.embeddings[idx], super_class, sub_class
 
 
 class EmbeddingDatasetMIL(Dataset):
-
-    def __init__(self,
-                 embeddings,
-                 tile_ids,
-                 metadata,
-                 class_mapping=CLASS_MAPPING):
+    def __init__(self, embeddings, tile_ids, metadata, class_mapping=CLASS_MAPPING):
         """
         Dataset to store precomputed embeddings and tile IDs.
 
@@ -119,8 +108,7 @@ class EmbeddingDatasetMIL(Dataset):
         self.embeddings = pd.DataFrame(embeddings, index=tile_ids)
         self.metadata = metadata.loc[tile_ids].copy()
         self.tile_ids = tile_ids
-        df_tmp = self.metadata.groupby("original_filename").agg(
-            {"class_name": "first"})
+        df_tmp = self.metadata.groupby("original_filename").agg({"class_name": "first"})
         self.image_ids = df_tmp.index.values
         labels = df_tmp["class_name"].values
         self.labels = [class_mapping[label] for label in labels]
@@ -128,7 +116,6 @@ class EmbeddingDatasetMIL(Dataset):
 
     @staticmethod
     def get_collate_fn_ragged():
-
         def collate_fn_ragged(batch):
             wsi_ids, embeddings, labels = zip(*batch)
             return list(wsi_ids), list(embeddings), torch.stack(labels)
@@ -140,18 +127,18 @@ class EmbeddingDatasetMIL(Dataset):
 
     def __getitem__(self, idx):
         image_id = self.image_ids[idx]
-        tile_ids = self.metadata[self.metadata["original_filename"] ==
-                                 self.image_ids[idx]].index
+        tile_ids = self.metadata[self.metadata["original_filename"] == self.image_ids[idx]].index
         embeddings = self.embeddings.loc[tile_ids, :].values
         label = self.labels[idx]
 
-        return image_id, torch.tensor(
-            embeddings, dtype=torch.float32), torch.tensor(label,
-                                                           dtype=torch.long)
+        return (
+            image_id,
+            torch.tensor(embeddings, dtype=torch.float32),
+            torch.tensor(label, dtype=torch.long),
+        )
 
 
 class TileDatasetMILAlbumentation(Dataset):
-
     def __init__(
         self,
         image_ids,
@@ -169,8 +156,7 @@ class TileDatasetMILAlbumentation(Dataset):
         """
         self.image_ids = image_ids
         self.metadata = metadata.copy()
-        df_tmp = self.metadata.groupby("original_filename").agg(
-            {"class_name": "first"})
+        df_tmp = self.metadata.groupby("original_filename").agg({"class_name": "first"})
         labels = df_tmp.loc[image_ids, "class_name"].values
         self.labels = [class_mapping[label] for label in labels]
         self.class_mapping = class_mapping
@@ -183,7 +169,6 @@ class TileDatasetMILAlbumentation(Dataset):
 
     @staticmethod
     def get_collate_fn_ragged():
-
         def collate_fn_ragged(batch):
             wsi_ids, embeddings, labels = zip(*batch)
             return list(wsi_ids), list(embeddings), torch.stack(labels)
@@ -196,12 +181,10 @@ class TileDatasetMILAlbumentation(Dataset):
     def create_cache(self):
         self.cached_tiles = []
         for image_id in self.image_ids:
-            self.cached_tiles.append(
-                self._load_tiles_without_transform(image_id))
+            self.cached_tiles.append(self._load_tiles_without_transform(image_id))
 
     def _load_tiles_without_transform(self, image_id):
-        tile_ids = self.metadata[self.metadata["original_filename"] ==
-                                 image_id].index
+        tile_ids = self.metadata[self.metadata["original_filename"] == image_id].index
 
         tiles = []
         for tile_id in tile_ids:
@@ -217,8 +200,7 @@ class TileDatasetMILAlbumentation(Dataset):
         return torch.stack(output)
 
     def _load_tiles(self, image_id):
-        tile_ids = self.metadata[self.metadata["original_filename"] ==
-                                 image_id].index
+        tile_ids = self.metadata[self.metadata["original_filename"] == image_id].index
 
         tiles = []
         for tile_id in tile_ids:
@@ -242,8 +224,9 @@ class TileDatasetMILAlbumentation(Dataset):
 
         # Replay the exact same transformation on the remaining tiles
         for tile in tiles[1:]:
-            transformed = A.ReplayCompose.replay(
-                first_transformed_tile["replay"], image=tile)["image"]
+            transformed = A.ReplayCompose.replay(first_transformed_tile["replay"], image=tile)[
+                "image"
+            ]
             transformed_tiles.append(transformed)
 
         tiles_tensor = torch.stack(transformed_tiles)
@@ -274,7 +257,6 @@ class TileDatasetMILAlbumentation(Dataset):
 
 
 class TileDatasetMIL(Dataset):
-
     def __init__(
         self,
         image_ids,
@@ -292,8 +274,7 @@ class TileDatasetMIL(Dataset):
         """
         self.image_ids = image_ids
         self.metadata = metadata.copy()
-        df_tmp = self.metadata.groupby("original_filename").agg(
-            {"class_name": "first"})
+        df_tmp = self.metadata.groupby("original_filename").agg({"class_name": "first"})
         labels = df_tmp.loc[image_ids, "class_name"].values
         self.labels = [class_mapping[label] for label in labels]
         self.class_mapping = class_mapping
@@ -305,7 +286,6 @@ class TileDatasetMIL(Dataset):
 
     @staticmethod
     def get_collate_fn_ragged():
-
         def collate_fn_ragged(batch):
             wsi_ids, embeddings, labels = zip(*batch)
             return list(wsi_ids), list(embeddings), torch.stack(labels)
@@ -318,12 +298,10 @@ class TileDatasetMIL(Dataset):
     def create_cache(self):
         self.cached_tiles = []
         for image_id in self.image_ids:
-            self.cached_tiles.append(
-                self._load_tiles_without_transform(image_id))
+            self.cached_tiles.append(self._load_tiles_without_transform(image_id))
 
     def _load_tiles_without_transform(self, image_id):
-        tile_ids = self.metadata[self.metadata["original_filename"] ==
-                                 image_id].index
+        tile_ids = self.metadata[self.metadata["original_filename"] == image_id].index
 
         tiles = []
         for tile_id in tile_ids:
@@ -339,8 +317,7 @@ class TileDatasetMIL(Dataset):
         return torch.stack(output)
 
     def _load_tiles(self, image_id):
-        tile_ids = self.metadata[self.metadata["original_filename"] ==
-                                 image_id].index
+        tile_ids = self.metadata[self.metadata["original_filename"] == image_id].index
 
         tiles = []
         for tile_id in tile_ids:
@@ -369,8 +346,7 @@ class TileDatasetMIL(Dataset):
 
 
 class LungHist700ImageDataset(Dataset):
-
-    def __init__(self, tile_paths, transform=None):
+    def __init__(self, image_paths, metadata, transform=None, class_mapping=CLASS_MAPPING):
         """
         Tile-level dataset that returns individual tile images from a list of paths.
 
@@ -378,17 +354,30 @@ class LungHist700ImageDataset(Dataset):
             tile_paths (list): List of paths to tile images for a WSI.
             transform (callable, optional): Transform to apply to each tile image.
         """
-        self.tile_paths = tile_paths
+        self.image_paths = image_paths
         self.transform = transform
+        self.metadata = metadata
+        self.class_mapping = class_mapping
 
     def __len__(self):
-        return len(self.tile_paths)
+        return len(self.image_paths)
+
+    @staticmethod
+    def get_collate_fn_ragged():
+        def collate_fn_ragged(batch):
+            images,  labels = zip(*batch)
+            return list(images), torch.stack(labels)
+
+        return collate_fn_ragged
 
     def __getitem__(self, idx):
-        tile_path = self.tile_paths[idx]
-        image = Image.open(tile_path).convert("RGB")  # Load as PIL image
+        image_path = self.image_paths[idx]
+        image_id = image_path.stem
+        image = Image.open(image_path).convert("RGB")  # Load as PIL image
 
         if self.transform:
             image = self.transform(image)  # Apply augmentation
 
-        return image, self.tile_paths[idx].stem
+        label = self.class_mapping[self.metadata.loc[image_id]["class_name"]]
+
+        return image, torch.tensor(label, dtype=torch.long)

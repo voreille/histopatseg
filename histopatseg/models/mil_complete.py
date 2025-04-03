@@ -1,4 +1,5 @@
 import logging
+import math
 
 import pytorch_lightning as pl
 import torch
@@ -20,15 +21,17 @@ def get_loss_function(loss_name, **kwargs):
     loss_class = loss_dict.get(loss_name)
 
     if loss_class is None:
-        raise ValueError(f"Loss function '{loss_name}' is not supported.\n"
-                         f"The available losses are: {list(loss_dict.keys())}")
+        raise ValueError(
+            f"Loss function '{loss_name}' is not supported.\n"
+            f"The available losses are: {list(loss_dict.keys())}"
+        )
 
     logging.info(f"Using loss function: {loss_name} with arguments: {kwargs}")
 
     # Check if 'weight' is in kwargs and convert it to a tensor
-    if 'weight' in kwargs and not isinstance(kwargs['weight'], torch.Tensor):
-        kwargs['weight'] = torch.tensor(
-            kwargs['weight'],
+    if "weight" in kwargs and not isinstance(kwargs["weight"], torch.Tensor):
+        kwargs["weight"] = torch.tensor(
+            kwargs["weight"],
             dtype=torch.float,
         )
 
@@ -71,12 +74,7 @@ def get_optimizer(parameters, optimizer_name, **kwargs):
     Returns:
         torch.optim.Optimizer: The instantiated optimizer.
     """
-    optimizer_dict = {
-        "Adam": Adam,
-        "AdamW": AdamW,
-        "SGD": SGD,
-        "RMSprop": RMSprop
-    }
+    optimizer_dict = {"Adam": Adam, "AdamW": AdamW, "SGD": SGD, "RMSprop": RMSprop}
 
     logging.info(f"== Optimizer: {optimizer_name} ==")
 
@@ -125,7 +123,6 @@ def get_scheduler(optimizer, name, **kwargs):
 
 
 class MILModel(pl.LightningModule):
-
     def __init__(
         self,
         input_dim,
@@ -142,6 +139,7 @@ class MILModel(pl.LightningModule):
         scheduler_kwargs=None,
         loss="BCEWithLogitsLoss",
         loss_kwargs=None,
+        feature_extractor_transform=None,
     ):
         super().__init__()  # Corrected initialization
         self.input_dim = input_dim
@@ -150,6 +148,8 @@ class MILModel(pl.LightningModule):
         self.attention_branches = attention_branches
         self.num_classes = num_classes
         self.feature_extractor = feature_extractor
+        self.tile_size = tile_size
+        self.feature_extractor_transform = feature_extractor_transform
 
         self.feature_projection = nn.Sequential(
             nn.Linear(self.input_dim, self.hidden_dim),
@@ -173,8 +173,7 @@ class MILModel(pl.LightningModule):
 
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout),
-            nn.Linear(self.hidden_dim * self.attention_branches,
-                      self.num_classes),
+            nn.Linear(self.hidden_dim * self.attention_branches, self.num_classes),
         )
 
         self.optimizer_name = optimizer
@@ -188,17 +187,17 @@ class MILModel(pl.LightningModule):
         # Metrics
         self.train_accuracy = MulticlassAccuracy(
             num_classes=num_classes,
-            average='macro',
+            average="macro",
         )
         self.val_accuracy = MulticlassAccuracy(
             num_classes=num_classes,
-            average='macro',
+            average="macro",
         )
 
         self.save_hyperparameters(ignore=["feature_extractor"])
 
     @torch.no_grad()
-    def calculate_stride(image_dim):
+    def calculate_stride(self, image_dim):
         """Calculate stride to align tiles symmetrically with borders."""
         if image_dim <= self.tile_size:
             raise ValueError("Image dimension must be larger than tile size")
@@ -211,14 +210,14 @@ class MILModel(pl.LightningModule):
         return int(stride)
 
     @torch.no_grad()
-    def tile_image(x):
+    def tile_image(self, x):
         """
         Tile the input image tensor into patches of shape (tile_size, tile_size).
-        
+
         Args:
             x (torch.Tensor): Input image of shape (C, H, W).
             tile_size (int): Size of the square tile.
-        
+
         Returns:
             torch.Tensor: A tensor of shape (n_tiles, C, tile_size, tile_size).
         """
@@ -229,7 +228,7 @@ class MILModel(pl.LightningModule):
 
         # Use tensor.unfold to extract sliding windows
         # For the height dimension (dim=1) and width dimension (dim=2)
-        tiles = x.unfold(1, tile_size, stride_y).unfold(2, tile_size, stride_x)
+        tiles = x.unfold(1, self.tile_size, stride_y).unfold(2, self.tile_size, stride_x)
         # tiles shape: (C, n_tiles_y, n_tiles_x, tile_size, tile_size)
 
         # Rearrange dimensions so that each tile is a separate sample
@@ -237,7 +236,7 @@ class MILModel(pl.LightningModule):
         # New shape: (n_tiles_y, n_tiles_x, C, tile_size, tile_size)
 
         # Flatten the first two dimensions to get a list of tiles
-        tiles = tiles.view(-1, C, tile_size, tile_size)
+        tiles = tiles.view(-1, C, self.tile_size, self.tile_size)
 
         return tiles
 
@@ -246,12 +245,11 @@ class MILModel(pl.LightningModule):
         x: input as one entire image [c, width, height]
         """
         tiles = self.tile_image(x)  # [n_tiles, c, width, height]
-        embeddings = self.feature_extractor(tiles)
-        pred, attention_score = self.forward_attention(embeddings)
-        predictions.append(pred)
-        attention_scores.append(attention_score)
+        if self.feature_extractor_transform:
+            tiles = self.feature_extractor_transform(tiles)
 
-        return torch.stack(pred), torch.stack(attention_score)
+        embeddings = self.feature_extractor(tiles)
+        return self.forward_attention(embeddings)
 
     def forward_attention(self, x):
         """
@@ -261,21 +259,19 @@ class MILModel(pl.LightningModule):
 
         # Compute Gated Attention Scores
         attention_tanh = self.attention_tanh(x)  # (num_patches, attention_dim)
-        attention_sigmoid = self.attention_sigmoid(
-            x)  # (num_patches, attention_dim)
+        attention_sigmoid = self.attention_sigmoid(x)  # (num_patches, attention_dim)
         attention_scores = self.attention_weights(
-            attention_tanh *
-            attention_sigmoid)  # (num_patches, attention_heads)
+            attention_tanh * attention_sigmoid
+        )  # (num_patches, attention_heads)
 
         # Normalize attention scores
-        attention_scores = torch.transpose(attention_scores, 1,
-                                           0)  # (attention_heads, num_patches)
-        attention_scores = F.softmax(attention_scores,
-                                     dim=1)  # Normalize over patches
+        attention_scores = torch.transpose(
+            attention_scores, 1, 0
+        )  # (attention_heads, num_patches)
+        attention_scores = F.softmax(attention_scores, dim=1)  # Normalize over patches
 
         # Aggregate patch embeddings using attention
-        aggregated_features = torch.mm(attention_scores,
-                                       x)  # (attention_heads, hidden_dim)
+        aggregated_features = torch.mm(attention_scores, x)  # (attention_heads, hidden_dim)
 
         # Classification
         prediction = self.classifier(aggregated_features)  # (num_classe,)
@@ -305,19 +301,18 @@ class MILModel(pl.LightningModule):
         }
 
     def step(self, batch):
-        _, embeddings, labels = batch
+        images, labels = batch
         batch_outputs = []
         batch_size = len(labels)
 
-        for embedding in embeddings:
-            outputs, _ = self(embedding)
+        for image in images:
+            outputs, _ = self(image)
             batch_outputs.append(outputs)
 
         batch_outputs = torch.stack(batch_outputs)
 
         if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
-            labels_one_hot = F.one_hot(labels,
-                                       num_classes=self.num_classes).float()
+            labels_one_hot = F.one_hot(labels, num_classes=self.num_classes).float()
             loss = self.loss_fn(batch_outputs, labels_one_hot)
         else:
             loss = self.loss_fn(batch_outputs, labels)
@@ -331,18 +326,17 @@ class MILModel(pl.LightningModule):
         self.train_accuracy(preds, labels)
 
         # Log metrics
-        self.log("train_loss",
-                 loss,
-                 on_step=True,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
-        self.log("train_acc",
-                 self.train_accuracy.compute(),
-                 on_step=True,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, batch_size=batch_size, prog_bar=True
+        )
+        self.log(
+            "train_acc",
+            self.train_accuracy.compute(),
+            on_step=True,
+            on_epoch=True,
+            batch_size=batch_size,
+            prog_bar=True,
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -351,16 +345,8 @@ class MILModel(pl.LightningModule):
         accuracy = self.val_accuracy.compute()
 
         # Log metrics
-        self.log("val_loss",
-                 val_loss,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
-        self.log("val_acc",
-                 accuracy,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
+        self.log("val_loss", val_loss, on_epoch=True, batch_size=batch_size, prog_bar=True)
+        self.log("val_acc", accuracy, on_epoch=True, batch_size=batch_size, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         loss, preds, labels, batch_size = self.step(batch)
@@ -370,16 +356,14 @@ class MILModel(pl.LightningModule):
             "test_acc",
             MulticlassAccuracy(
                 num_classes=self.num_classes,
-                average='macro',
+                average="macro",
             )(preds, labels).compute(),
             batch_size=batch_size,
         )
 
     def configure_optimizers(self):
-        optimizer = get_optimizer(self.parameters(), self.optimizer_name,
-                                  **self.optimizer_kwargs)
-        scheduler = get_scheduler(optimizer, self.scheduler_name,
-                                  **self.scheduler_kwargs)
+        optimizer = get_optimizer(self.parameters(), self.optimizer_name, **self.optimizer_kwargs)
+        scheduler = get_scheduler(optimizer, self.scheduler_name, **self.scheduler_kwargs)
 
         if scheduler is None:
             return optimizer

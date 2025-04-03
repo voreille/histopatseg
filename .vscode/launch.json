@@ -133,6 +133,26 @@
                 "0"
             ]
         },
+        {
+            "name": "Python: Train MIL from Images",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_mil_from_images.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/uni2_20x_mil_from_images.ckpt",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "1",
+                "--batch-size",
+                "32",
+                "--num-workers",
+                "0"
+            ]
+        },
+
 
     ]
 }
