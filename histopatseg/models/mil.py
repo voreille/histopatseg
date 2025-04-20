@@ -20,15 +20,17 @@ def get_loss_function(loss_name, **kwargs):
     loss_class = loss_dict.get(loss_name)
 
     if loss_class is None:
-        raise ValueError(f"Loss function '{loss_name}' is not supported.\n"
-                         f"The available losses are: {list(loss_dict.keys())}")
+        raise ValueError(
+            f"Loss function '{loss_name}' is not supported.\n"
+            f"The available losses are: {list(loss_dict.keys())}"
+        )
 
     logging.info(f"Using loss function: {loss_name} with arguments: {kwargs}")
 
     # Check if 'weight' is in kwargs and convert it to a tensor
-    if 'weight' in kwargs and not isinstance(kwargs['weight'], torch.Tensor):
-        kwargs['weight'] = torch.tensor(
-            kwargs['weight'],
+    if "weight" in kwargs and not isinstance(kwargs["weight"], torch.Tensor):
+        kwargs["weight"] = torch.tensor(
+            kwargs["weight"],
             dtype=torch.float,
         )
 
@@ -71,12 +73,7 @@ def get_optimizer(parameters, optimizer_name, **kwargs):
     Returns:
         torch.optim.Optimizer: The instantiated optimizer.
     """
-    optimizer_dict = {
-        "Adam": Adam,
-        "AdamW": AdamW,
-        "SGD": SGD,
-        "RMSprop": RMSprop
-    }
+    optimizer_dict = {"Adam": Adam, "AdamW": AdamW, "SGD": SGD, "RMSprop": RMSprop}
 
     logging.info(f"== Optimizer: {optimizer_name} ==")
 
@@ -125,7 +122,6 @@ def get_scheduler(optimizer, name, **kwargs):
 
 
 class BaseAttentionAggregatorPL(pl.LightningModule):
-
     def __init__(
         self,
         input_dim,
@@ -172,8 +168,7 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
 
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout),
-            nn.Linear(self.hidden_dim * self.attention_branches,
-                      self.num_classes),
+            nn.Linear(self.hidden_dim * self.attention_branches, self.num_classes),
         )
 
         self.optimizer_name = optimizer
@@ -187,11 +182,11 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
         # Metrics
         self.train_accuracy = MulticlassAccuracy(
             num_classes=num_classes,
-            average='macro',
+            average="macro",
         )
         self.val_accuracy = MulticlassAccuracy(
             num_classes=num_classes,
-            average='macro',
+            average="macro",
         )
 
         self.save_hyperparameters(ignore=["feature_extractor"])
@@ -207,21 +202,19 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
 
         # Compute Gated Attention Scores
         attention_tanh = self.attention_tanh(x)  # (num_patches, attention_dim)
-        attention_sigmoid = self.attention_sigmoid(
-            x)  # (num_patches, attention_dim)
+        attention_sigmoid = self.attention_sigmoid(x)  # (num_patches, attention_dim)
         attention_scores = self.attention_weights(
-            attention_tanh *
-            attention_sigmoid)  # (num_patches, attention_heads)
+            attention_tanh * attention_sigmoid
+        )  # (num_patches, attention_heads)
 
         # Normalize attention scores
-        attention_scores = torch.transpose(attention_scores, 1,
-                                           0)  # (attention_heads, num_patches)
-        attention_scores = F.softmax(attention_scores,
-                                     dim=1)  # Normalize over patches
+        attention_scores = torch.transpose(
+            attention_scores, 1, 0
+        )  # (attention_heads, num_patches)
+        attention_scores = F.softmax(attention_scores, dim=1)  # Normalize over patches
 
         # Aggregate patch embeddings using attention
-        aggregated_features = torch.mm(attention_scores,
-                                       x)  # (attention_heads, hidden_dim)
+        aggregated_features = torch.mm(attention_scores, x)  # (attention_heads, hidden_dim)
 
         # Classification
         prediction = self.classifier(aggregated_features)  # (num_classe,)
@@ -258,18 +251,17 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
         self.train_accuracy(preds, labels)
 
         # Log metrics
-        self.log("train_loss",
-                 loss,
-                 on_step=True,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
-        self.log("train_acc",
-                 self.train_accuracy.compute(),
-                 on_step=True,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, batch_size=batch_size, prog_bar=True
+        )
+        self.log(
+            "train_acc",
+            self.train_accuracy.compute(),
+            on_step=True,
+            on_epoch=True,
+            batch_size=batch_size,
+            prog_bar=True,
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -278,16 +270,8 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
         accuracy = self.val_accuracy.compute()
 
         # Log metrics
-        self.log("val_loss",
-                 val_loss,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
-        self.log("val_acc",
-                 accuracy,
-                 on_epoch=True,
-                 batch_size=batch_size,
-                 prog_bar=True)
+        self.log("val_loss", val_loss, on_epoch=True, batch_size=batch_size, prog_bar=True)
+        self.log("val_acc", accuracy, on_epoch=True, batch_size=batch_size, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         loss, preds, labels, batch_size = self.step(batch)
@@ -297,16 +281,14 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
             "test_acc",
             MulticlassAccuracy(
                 num_classes=self.num_classes,
-                average='macro',
+                average="macro",
             )(preds, labels).compute(),
             batch_size=batch_size,
         )
 
     def configure_optimizers(self):
-        optimizer = get_optimizer(self.parameters(), self.optimizer_name,
-                                  **self.optimizer_kwargs)
-        scheduler = get_scheduler(optimizer, self.scheduler_name,
-                                  **self.scheduler_kwargs)
+        optimizer = get_optimizer(self.parameters(), self.optimizer_name, **self.optimizer_kwargs)
+        scheduler = get_scheduler(optimizer, self.scheduler_name, **self.scheduler_kwargs)
 
         if scheduler is None:
             return optimizer
@@ -318,7 +300,6 @@ class BaseAttentionAggregatorPL(pl.LightningModule):
 
 
 class AttentionAggregatorFromEmbeddings(BaseAttentionAggregatorPL):
-
     def forward(self, x):
         return self.forward_attention(x)
 
@@ -334,8 +315,7 @@ class AttentionAggregatorFromEmbeddings(BaseAttentionAggregatorPL):
         batch_outputs = torch.stack(batch_outputs)
 
         if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
-            labels_one_hot = F.one_hot(labels,
-                                       num_classes=self.num_classes).float()
+            labels_one_hot = F.one_hot(labels, num_classes=self.num_classes).float()
             loss = self.loss_fn(batch_outputs, labels_one_hot)
         else:
             loss = self.loss_fn(batch_outputs, labels)
@@ -346,14 +326,13 @@ class AttentionAggregatorFromEmbeddings(BaseAttentionAggregatorPL):
 
 
 class AttentionAggregator(BaseAttentionAggregatorPL):
-
     def forward(self, x):
         with torch.no_grad():
             x = self.feature_extractor(x)
         return self.forward_attention(x)
 
     def step(self, batch):
-        _, tiles_set, labels = batch
+        tiles_set, labels = batch # Change to 2 instead of 3
         batch_outputs = []
         batch_size = len(labels)
 
@@ -364,8 +343,7 @@ class AttentionAggregator(BaseAttentionAggregatorPL):
         batch_outputs = torch.stack(batch_outputs)
 
         if self.loss_fn.__class__.__name__ == "BCEWithLogitsLoss":
-            labels_one_hot = F.one_hot(labels,
-                                       num_classes=self.num_classes).float()
+            labels_one_hot = F.one_hot(labels, num_classes=self.num_classes).float()
             loss = self.loss_fn(batch_outputs, labels_one_hot)
         else:
             loss = self.loss_fn(batch_outputs, labels)
@@ -373,3 +351,22 @@ class AttentionAggregator(BaseAttentionAggregatorPL):
         preds = batch_outputs.argmax(dim=-1)
 
         return loss, preds, labels, batch_size
+
+
+class AttentionAggregatorLoRa(AttentionAggregator):
+    def forward(self, x):
+        x = self.feature_extractor(x)
+        return self.forward_attention(x)
+
+    def configure_optimizers(self):
+        trainable_params = filter(lambda p: p.requires_grad, self.parameters())
+        optimizer = get_optimizer(trainable_params, self.optimizer_name, **self.optimizer_kwargs)
+        scheduler = get_scheduler(optimizer, self.scheduler_name, **self.scheduler_kwargs)
+
+        if scheduler is None:
+            return optimizer
+
+        if isinstance(scheduler, dict):
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
+        return [optimizer], [scheduler]

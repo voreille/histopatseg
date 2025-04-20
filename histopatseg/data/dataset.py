@@ -1,9 +1,12 @@
+import math
+
 import albumentations as A
 import numpy as np
 import pandas as pd
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
+import torchvision.transforms.functional as TF
 
 from histopatseg.constants import CLASS_MAPPING, SUBCLASS_MAPPING, SUPERCLASS_MAPPING
 
@@ -365,7 +368,7 @@ class LungHist700ImageDataset(Dataset):
     @staticmethod
     def get_collate_fn_ragged():
         def collate_fn_ragged(batch):
-            images,  labels = zip(*batch)
+            images, labels = zip(*batch)
             return list(images), torch.stack(labels)
 
         return collate_fn_ragged
@@ -381,3 +384,83 @@ class LungHist700ImageDataset(Dataset):
         label = self.class_mapping[self.metadata.loc[image_id]["class_name"]]
 
         return image, torch.tensor(label, dtype=torch.long)
+
+
+class MILDataset(torch.utils.data.Dataset):
+    def __init__(self, image_paths, labels, transform=None, augment=None, tile_size=224):
+        self.image_paths = image_paths
+        self.labels = labels
+        self.transform = transform
+        self.augment = augment
+        self.tile_size = tile_size
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    @staticmethod
+    def get_collate_fn_ragged():
+        def collate_fn_ragged(batch):
+            tile_bags, labels = zip(*batch)
+            return list(tile_bags), torch.stack(labels)
+
+        return collate_fn_ragged
+
+    def calculate_stride(self, image_dim):
+        """Calculate stride to align tiles symmetrically with borders."""
+        if image_dim <= self.tile_size:
+            raise ValueError("Image dimension must be larger than tile size")
+
+        n_tiles = math.ceil(image_dim / self.tile_size)
+        if n_tiles == 1:
+            return 0  # Single tile, no stride needed
+        total_stride_space = image_dim - self.tile_size * n_tiles
+        stride = self.tile_size + total_stride_space // (n_tiles - 1)
+        return int(stride)
+
+    def tile_image(self, image: Image.Image) -> torch.Tensor:
+        """
+        Tile a PIL image into patches of shape (N, C, tile_size, tile_size).
+
+        Args:
+            image (PIL.Image): Input image of shape (H, W, 3)
+
+        Returns:
+            torch.Tensor: Tensor of tiles (num_tiles, C, tile_size, tile_size)
+        """
+        # Convert PIL image to tensor: [C, H, W]
+        image_tensor = TF.to_tensor(image)  # range [0, 1]
+        C, H, W = image_tensor.shape
+
+        # Compute symmetric stride
+        stride_y = self.calculate_stride(H)
+        stride_x = self.calculate_stride(W)
+
+        # Tiling with unfold
+        tiles = image_tensor.unfold(1, self.tile_size, stride_y).unfold(
+            2, self.tile_size, stride_x
+        )
+        # shape: [C, n_tiles_y, n_tiles_x, tile_size, tile_size]
+
+        tiles = tiles.permute(1, 2, 0, 3, 4).contiguous()
+        # shape: [n_tiles_y, n_tiles_x, C, tile_size, tile_size]
+
+        tiles = tiles.view(-1, C, self.tile_size, self.tile_size)
+        # shape: [num_tiles, C, tile_size, tile_size]
+
+        return tiles
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        label = torch.tensor(self.labels[idx], dtype=torch.long)
+
+        # Load image as Tensor [C, H, W]
+        image = Image.open(image_path).convert("RGB")  # Load as PIL image
+
+        if self.augment:
+            image = self.augment(image)
+
+        tiles = self.tile_image(image)
+        if self.transform:
+            tiles = self.transform(tiles)
+
+        return tiles, label

@@ -134,6 +134,25 @@
             ]
         },
         {
+            "name": "Python: Train MIL from Tiles with LoRa",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_mil_from_tiles_lora.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--output-path",
+                "checkpoints/uni2_20x_mil_from_tiles.ckpt",
+                "--num-epochs",
+                "10",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "1",
+                "--num-workers",
+                "0"
+            ]
+        },
+        {
             "name": "Python: Train MIL from Images",
             "type": "debugpy",
             "request": "launch",
@@ -152,7 +171,26 @@
                 "0"
             ]
         },
-
-
+                {
+            "name": "Extract GigaPath Embeddings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/gigapath_wrapper/cli/extract_dataset_embeddings.py",
+            "args": [
+                "--input-dir", "${workspaceFolder}/data/processed/LungHist700/LungHist700_20x",
+                "--output-dir", "${workspaceFolder}/data/processed/LungHist700_embeddings/gigapath/",
+                "--batch-size", "8",
+                "--num-workers", "4",
+                "--gpu-id", "0",
+                "--output-prefix", "lunghist700_",
+                "--file-extensions", ".jpg,.png"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "envFile": "${workspaceFolder}/.env"
+        }
     ]
 }
