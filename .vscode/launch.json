@@ -12,25 +12,34 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: Launch Embedding Computation",
+            "name": "Compute LungHist700 Embeddings",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/histopatseg/data/compute_embeddings_lunghist700.py",
-            "console": "integratedTerminal",
             "args": [
+                "--input-dir",
+                "${workspaceFolder}/data/processed/LungHist700/LungHist700_20x",
+                "--metadata-path",
+                "${workspaceFolder}/data/processed/LungHist700/metadata.csv",
                 "--output-file",
-                "data/processed/LungHist700_embeddings/UNI2_20x.npz",
+                "${workspaceFolder}/data/processed/embeddings/lunghist700_20x_UNI2_embeddings.npz",
                 "--model-name",
                 "UNI2",
-                "--magnification",
-                "20",
+                "--tile-size",
+                "224",
                 "--gpu-id",
                 "0",
                 "--batch-size",
-                "256",
+                "1",
                 "--num-workers",
-                "24",
-            ]
+                "4"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}"
         },
         {
             "name": "Python: Train Linear Probing from Embeddings",
@@ -171,19 +180,26 @@
                 "0"
             ]
         },
-                {
+        {
             "name": "Extract GigaPath Embeddings",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/histopatseg/gigapath_wrapper/cli/extract_dataset_embeddings.py",
             "args": [
-                "--input-dir", "${workspaceFolder}/data/processed/LungHist700/LungHist700_20x",
-                "--output-dir", "${workspaceFolder}/data/processed/LungHist700_embeddings/gigapath/",
-                "--batch-size", "8",
-                "--num-workers", "4",
-                "--gpu-id", "0",
-                "--output-prefix", "lunghist700_global_pool_True_",
-                "--file-extensions", ".jpg,.png"
+                "--input-dir",
+                "${workspaceFolder}/data/processed/LungHist700/LungHist700_20x",
+                "--output-dir",
+                "${workspaceFolder}/data/processed/LungHist700_embeddings/gigapath/",
+                "--batch-size",
+                "8",
+                "--num-workers",
+                "4",
+                "--gpu-id",
+                "0",
+                "--output-prefix",
+                "lunghist700_global_pool_True_",
+                "--file-extensions",
+                ".jpg,.png"
             ],
             "console": "integratedTerminal",
             "justMyCode": false,

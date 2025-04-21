@@ -32,7 +32,58 @@ def plot_embeddings(
     Returns:
         matplotlib figure
     """
-    # Your existing implementation is good, no changes needed
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Create dataframe for plotting
+    plot_df = pd.DataFrame({
+        'x': reduced_data[:, 0], 
+        'y': reduced_data[:, 1],
+        'label': metadata[color_by] if color_by in metadata.columns else ['Unknown'] * len(reduced_data)
+    })
+    
+    # Get unique labels and sort them for consistent colors
+    sorted_labels = sorted(plot_df['label'].unique())
+    
+    # Generate color palette
+    palette = sns.color_palette(palette_name, n_colors=len(sorted_labels))
+    
+    # Create scatter plot
+    sns.scatterplot(
+        x='x', 
+        y='y',
+        hue='label',
+        hue_order=sorted_labels,
+        palette=palette,
+        data=plot_df,
+        alpha=0.7,
+        s=30,
+        ax=ax
+    )
+    
+    # Set title and labels
+    if title is None:
+        title = f"{method_name} Visualization (Colored by {color_by})"
+    ax.set_title(title, fontsize=14)
+    ax.set_xlabel(f"{method_name} Dimension 1", fontsize=12)
+    ax.set_ylabel(f"{method_name} Dimension 2", fontsize=12)
+    
+    # Improve legend
+    legend = ax.legend(
+        title=color_by.capitalize(),
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left',
+        fontsize=10
+    )
+    legend.get_title().set_fontsize(12)
+    
+    # Adjust layout to make room for the legend
+    plt.tight_layout()
+    
+    # Save figure if requested
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    return fig
 
 
 def compare_embeddings(

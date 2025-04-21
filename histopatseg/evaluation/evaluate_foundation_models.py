@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from histopatseg.evaluation.visualization import compare_embeddings, visualize_all_embeddings
+from histopatseg.visualization.visualization import compare_embeddings, visualize_all_embeddings
 
 # Add the project root to the Python path to import local modules
 project_root = Path(__file__).resolve().parent.parent
