@@ -1,11 +1,12 @@
-import os
+"""
+TODO: Compute first every tile embedding and then compute the WSI embedding
+"""
+
 from pathlib import Path
-import time
 
 import click
 import gigapath.slide_encoder as slide_encoder
 import h5py
-from huggingface_hub import HfFolder, hf_hub_download
 import numpy as np
 from PIL import Image
 import timm
@@ -61,71 +62,139 @@ class TileDatasetFromImage(Dataset):
         return self.transform(tile), coord
 
 
-def load_slide_encoder_model(
-    model_name="hf_hub:prov-gigapath/prov-gigapath",
-    model_arch="gigapath_slide_enc12l768d",
-    global_pool=True,
-    timeout=300,  # 5 minute timeout
-):
+def load_tile_encoder(device, model_cache_dir=None):
     """
-    Load the slide encoder model with better error handling and timeout.
+    Get or create a tile encoder model with manual weight caching.
 
     Args:
-        model_name: HF hub model name or local path
-        model_arch: Model architecture name
-        global_pool: Whether to use global pooling
-        timeout: Maximum time to wait for model download in seconds
+        device: Device to place the model on ('cpu' or 'cuda:x')
+        model_cache_dir: Optional custom directory to store model weights
+
+    Returns:
+        Loaded tile encoder model on the specified device
     """
-    click.echo(f"Loading slide encoder model: {model_name}")
+    # Hardcoded model name for tile encoder
+    tile_model_name = "hf_hub:prov-gigapath/prov-gigapath"
 
-    # Extract hub name if using HF hub
-    if model_name.startswith("hf_hub:"):
-        hub_name = model_name.split(":")[1]
-        local_dir = os.path.join(os.path.expanduser("~"), ".cache/")
-        local_path = os.path.join(local_dir, "slide_encoder.pth")
+    # Define custom weights path if cache dir provided
+    weights_filename = "tile_encoder_weights.pt"
+    weights_path = None
+    if model_cache_dir:
+        model_cache_dir = Path(model_cache_dir)
+        model_cache_dir.mkdir(parents=True, exist_ok=True)
+        weights_path = model_cache_dir / weights_filename
+        click.echo(f"Using custom model cache path: {weights_path}")
 
-        # Check if file already exists
-        if not os.path.exists(local_path):
-            click.echo(f"Downloading slide encoder model from HF Hub: {hub_name}")
-            start_time = time.time()
+    # Check if we have cached weights
+    if weights_path and weights_path.exists():
+        click.echo(f"Loading tile encoder from cached weights: {weights_path}")
+        try:
+            # Load model directly from saved weights
+            tile_encoder = timm.create_model(
+                "hf_hub:prov-gigapath/prov-gigapath", pretrained=False
+            )
+            tile_encoder.load_state_dict(torch.load(weights_path, map_location="cpu"))
+            tile_encoder = tile_encoder.to(device)
+            tile_encoder.eval()
+            click.echo("Successfully loaded tile encoder from cached weights")
+            return tile_encoder
+        except Exception as e:
+            click.echo(f"Error loading from cached weights: {e}")
+            click.echo("Will download model from HF hub instead")
 
-            try:
-                # Check if we have a token
-                token = HfFolder.get_token()
-                if token is None:
-                    click.echo(
-                        "Warning: No Hugging Face token found. If the model is private, download may fail."
-                    )
-
-                # Download with progress feedback and timeout
-                hf_hub_download(
-                    hub_name,
-                    filename="slide_encoder.pth",
-                    local_dir=local_dir,
-                    force_download=False,
-                )
-
-                # Check for timeout
-                if time.time() - start_time > timeout:
-                    raise TimeoutError(f"Model download timed out after {timeout} seconds")
-
-                click.echo(f"Download completed in {time.time() - start_time:.1f} seconds")
-            except Exception as e:
-                click.echo(f"Error downloading model: {str(e)}")
-                click.echo("Falling back to randomly initialized model")
-                return slide_encoder.gigapath_slide_enc12l768d(
-                    in_chans=1536, global_pool=global_pool
-                )
-
-    # Now load the model using the original function
+    # Otherwise, download from hub
+    click.echo(f"Downloading tile encoder model: {tile_model_name}")
     try:
-        model = slide_encoder.create_model(model_name, model_arch, 1536, global_pool=global_pool)
-        return model
+        tile_encoder = timm.create_model(tile_model_name, pretrained=True)
+        tile_encoder = tile_encoder.to(device)
+        tile_encoder.eval()
+
+        # Save model if cache path specified
+        if weights_path:
+            click.echo(f"Saving tile encoder weights to: {weights_path}")
+            torch.save(tile_encoder.state_dict(), weights_path)
+
+        return tile_encoder
+
     except Exception as e:
-        click.echo(f"Error loading model: {str(e)}")
-        click.echo("Falling back to randomly initialized model")
-        # Create the model directly without loading weights
-        return slide_encoder.gigapath_slide_enc12l768d(in_chans=1536, global_pool=global_pool)
+        click.echo(f"Error loading tile encoder: {e}")
+        raise RuntimeError(f"Failed to load tile encoder: {e}")
+
+
+def load_slide_encoder_model(device, global_pool=True, model_cache_dir=None):
+    """
+    Get or create a slide encoder model with manual weight caching.
+
+    Args:
+        device: Device to place the model on ('cpu' or 'cuda:x')
+        global_pool: Whether to use global pooling
+        model_cache_dir: Optional custom directory to store model weights
+
+    Returns:
+        Loaded slide encoder model on the specified device
+    """
+    # Include global_pool setting in filename
+    weights_filename = f"slide_encoder_global_pool_{global_pool}.pth"
+
+    # If custom cache dir provided, use it
+    if model_cache_dir:
+        model_cache_dir = Path(model_cache_dir)
+        model_cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a full path to cached weights
+        local_path = model_cache_dir / weights_filename
+
+        # If we have cached weights, use them directly
+        if local_path.exists():
+            click.echo(f"Loading slide encoder from custom cache: {local_path}")
+            try:
+                # Create model using our cached weights file directly
+                slide_encoder_model = slide_encoder.create_model(
+                    pretrained=str(local_path),  # Pass our cached file path directly
+                    model_arch="gigapath_slide_enc12l768d",
+                    in_chans=1536,
+                    global_pool=global_pool,
+                )
+                slide_encoder_model = slide_encoder_model.to(device)
+                slide_encoder_model.eval()
+                click.echo(
+                    f"Successfully loaded slide encoder from custom cache (global_pool={global_pool})"
+                )
+                return slide_encoder_model
+            except Exception as e:
+                click.echo(f"Error loading from custom cache: {e}")
+                click.echo("Will download from HF hub instead")
+
+    # No custom cache or loading failed, download from HF hub
+    try:
+        # Set the cache directory for the HF download if specified
+        local_dir = str(model_cache_dir) if model_cache_dir else None
+
+        click.echo(f"Downloading slide encoder from HF hub (global_pool={global_pool})")
+        slide_encoder_model = slide_encoder.create_model(
+            pretrained="hf_hub:prov-gigapath/prov-gigapath",
+            model_arch="gigapath_slide_enc12l768d",
+            in_chans=1536,
+            global_pool=global_pool,
+            local_dir=local_dir,  # Pass the custom directory if provided
+        )
+        slide_encoder_model = slide_encoder_model.to(device)
+        slide_encoder_model.eval()
+
+        # If we have a custom cache dir, save a copy there with our specific global_pool name
+        if model_cache_dir:
+            slide_encoder_path = model_cache_dir / weights_filename
+            click.echo(f"Saving a copy to custom cache: {slide_encoder_path}")
+
+            # Get the state dict from the loaded model
+            state_dict = {"model": slide_encoder_model.state_dict()}
+            torch.save(state_dict, slide_encoder_path)
+
+        return slide_encoder_model
+
+    except Exception as e:
+        click.echo(f"Error loading slide encoder: {e}")
+        raise RuntimeError(f"Failed to load slide encoder: {e}")
 
 
 @click.command()
@@ -158,9 +227,15 @@ def load_slide_encoder_model(
 )
 @click.option(
     "--global-pool-tile-encoder",
-    type=click.Choice(["avg", "none"], case_sensitive=False),
-    default="avg",
-    help="Global pooling method for tile encoder",
+    type=click.BOOL,  # Change to boolean type
+    default=True,
+    help="Whether to use global pooling for tile encoder (True/False)",
+)
+@click.option(
+    "--model-cache-dir",
+    type=click.Path(path_type=Path),
+    default="models/gigapath/pretrained_weights/",
+    help="Directory to cache models",
 )
 def main(
     input_dir,
@@ -171,12 +246,16 @@ def main(
     file_extensions,
     output_prefix,
     global_pool_tile_encoder,
+    model_cache_dir,
 ):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Hardcoded model name for tile encoder since not intended to be changed
     tile_model_name = "hf_hub:prov-gigapath/prov-gigapath"
+
+    # Add global pool setting to output prefix
+    output_prefix = f"{output_prefix}global_pool_{global_pool_tile_encoder}_"
 
     # Set device based on gpu_id
     if gpu_id >= 0 and torch.cuda.is_available():
@@ -199,29 +278,13 @@ def main(
 
     # Load models
     click.echo(f"Loading tile encoder model: {tile_model_name}")
-    # tile_encoder = timm.create_model(tile_model_name, pretrained=True).to(device)
-    # tile_encoder.eval()
-    # tile_encoder, slide_encoder_model = load_tile_slide_encoder(
-    #     global_pool=True if global_pool_tile_encoder == "avg" else False
-    # )
+
+    tile_encoder = load_tile_encoder(device, model_cache_dir)
+    click.echo("Tile encoder loaded")
 
     slide_encoder_model = load_slide_encoder_model(
-        global_pool=True if global_pool_tile_encoder == "avg" else False
+        device, global_pool=global_pool_tile_encoder, model_cache_dir=model_cache_dir
     )
-    tile_encoder = timm.create_model("hf_hub:prov-gigapath/prov-gigapath", pretrained=True)
-    # slide_encoder_model = slide_encoder.create_model(
-    #     "hf_hub:prov-gigapath/prov-gigapath",
-    #     "gigapath_slide_enc12l768d",
-    #     1536,
-    #     global_pool=True if global_pool_tile_encoder == "avg" else False,
-    # )
-
-    tile_encoder.eval()
-    slide_encoder_model.eval()
-    # slide_encoder_model = slide_encoder.create_model(
-    #     "hf_hub:prov-gigapath/prov-gigapath", "gigapath_slide_enc12l768d", 1536
-    # )
-    slide_encoder_model.eval()
     click.echo("Slide encoder loaded")
 
     # Prepare for storing results
@@ -247,14 +310,21 @@ def main(
                 click.echo(f"No tiles extracted from {img_name}, skipping")
                 continue
 
-            loader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+            loader = DataLoader(
+                dataset,
+                batch_size=batch_size,
+                num_workers=num_workers,
+                persistent_workers=True,  # Keep workers alive between iterations
+                pin_memory=True,  # Speed up CPU->GPU transfers
+                prefetch_factor=2,  # Prefetch batches
+            )
 
             all_embeds = []
             all_coords = []
 
             # Extract tile embeddings
-            with torch.no_grad():
-                with torch.cuda.amp.autocast(dtype=torch.float16):
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                with torch.inference_mode():
                     for batch in tqdm(loader, desc=f"Embedding tiles for {img_name}"):
                         imgs, coords = batch
                         imgs = imgs.to(device)
@@ -272,7 +342,7 @@ def main(
             with torch.cuda.amp.autocast(dtype=torch.float16):
                 with torch.no_grad():
                     wsi_embedding = (
-                        slide_encoder_model(tile_embeddings.to(device), coordinates.to(device))
+                        slide_encoder_model(tile_embeddings.to(device), coordinates.to(device))[0]
                         .cpu()
                         .squeeze()
                     )
@@ -290,6 +360,7 @@ def main(
             click.echo(
                 f"Processed {img_name}: {len(dataset)} tiles, WSI shape: {wsi_embedding.shape}"
             )
+            torch.cuda.empty_cache()
 
         except Exception as e:
             click.echo(f"Error processing {img_name}: {e}")

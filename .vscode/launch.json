@@ -182,7 +182,7 @@
                 "--batch-size", "8",
                 "--num-workers", "4",
                 "--gpu-id", "0",
-                "--output-prefix", "lunghist700_",
+                "--output-prefix", "lunghist700_global_pool_True_",
                 "--file-extensions", ".jpg,.png"
             ],
             "console": "integratedTerminal",

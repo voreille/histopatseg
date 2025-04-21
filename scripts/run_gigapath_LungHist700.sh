@@ -16,20 +16,25 @@ conda activate gigapath
 INPUT_DIR="${PROJECT_ROOT}/data/processed/LungHist700/LungHist700_20x"
 OUTPUT_DIR="${PROJECT_ROOT}/data/processed/LungHist700_embeddings/gigapath/"
 OUTPUT_PREFIX="lunghist700_"
+CACHE_DIR="${PROJECT_ROOT}/models/cache/gigapath"
+USE_GLOBAL_POOL=false  # Set this to true or false as needed
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
+mkdir -p "$CACHE_DIR"
 
 # Run the embedding extraction from project root
 cd "$PROJECT_ROOT"
 python histopatseg/gigapath_wrapper/cli/extract_dataset_embeddings.py \
   --input-dir "$INPUT_DIR" \
   --output-dir "$OUTPUT_DIR" \
-  --batch-size 8 \
-  --num-workers 8 \
+  --batch-size 6 \
+  --num-workers 2 \
   --gpu-id 0 \
   --output-prefix "$OUTPUT_PREFIX" \
-  --file-extensions ".jpg,.png"
+  --file-extensions ".jpg,.png" \
+  --global-pool-tile-encoder "$USE_GLOBAL_POOL" \
+  --model-cache-dir "$CACHE_DIR"
 
 # Restore the previous conda environment if one was active
 if [ -n "$CURRENT_CONDA_ENV" ]; then
