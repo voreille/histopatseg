@@ -1,6 +1,6 @@
 import logging
 
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 import torch
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
@@ -103,6 +103,7 @@ def get_scheduler(optimizer, name, **kwargs):
         "CosineAnnealingLR": torch.optim.lr_scheduler.CosineAnnealingLR,
         "cosine": torch.optim.lr_scheduler.CosineAnnealingLR,
         "ReduceLROnPlateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
+        "OneCycleLR": torch.optim.lr_scheduler.OneCycleLR,
     }
 
     scheduler_class = schedulers_dict.get(name)

@@ -251,6 +251,46 @@
                 "PYTHONPATH": "${workspaceFolder}"
             },
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "name": "Train MIL Model NEW",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/training/train_mil_from_tiles_new.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--model-name",
+                "UNI2",
+                "--images-dir",
+                "${workspaceFolder}/data/processed/LungHist700/LungHist700_20x",
+                "--metadata-path",
+                "${workspaceFolder}/data/processed/LungHist700/metadata.csv",
+                "--max-epochs",
+                "50",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "1",
+                "--lr",
+                "0.001",
+                "--dropout",
+                "0.2",
+                "--weight-decay",
+                "0.0001",
+                "--num-workers",
+                "1",
+                "--superclass",
+                "aca",
+                "--fold",
+                "0",
+                "--n-splits",
+                "4",
+                "--random-state",
+                "42",
+                "--output-path",
+                "${workspaceFolder}/models/mil/debug_run.ckpt"
+            ]
         }
     ]
 }

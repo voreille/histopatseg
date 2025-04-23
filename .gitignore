@@ -3,6 +3,8 @@
 /models/
 /lightning_logs/
 /tb_logs/
+/checkpoints/
+/reports/
 
 # Mac OS-specific storage files
 .DS_Store
