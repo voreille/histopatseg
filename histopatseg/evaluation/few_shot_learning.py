@@ -30,11 +30,6 @@ from histopatseg.evaluation.utils import (
 @click.option("--aggregation-method", default="none", help="Aggregation method.")
 @click.option("--output-dir", default="./results", help="Directory to save results.")
 @click.option("--n-splits", default=4, help="Number of splits for cross-validation.")
-@click.option(
-    "--classifiers",
-    default="knn,linear,prototype",
-    help="Comma-separated list of classifiers to use: knn,linear,prototype,gaussian_prototype",
-)
 def main(
     embeddings_path,
     metadata_path,
@@ -43,24 +38,19 @@ def main(
     aggregation_method,
     output_dir,
     n_splits,
-    classifiers,
 ):
     """Simple CLI program to greet someone"""
     embeddings_path = Path(embeddings_path).resolve()
     metadata_path = Path(metadata_path).resolve()
     output_dir = Path(output_dir).resolve()
 
-    classifier_list = classifiers.split(",")
-
     model_name = embeddings_path.stem.split("_embeddings")[0]
 
     # Load the metadata
     if aggregation_method == "centercrop":
         metadata = pd.read_csv(metadata_path).set_index("filename")
-        image_id_col = None
     else:
         metadata = pd.read_csv(metadata_path).set_index("tile_id")
-        image_id_col = "original_filename"
 
     data = np.load(embeddings_path)
     embeddings = data["embeddings"]
@@ -102,8 +92,6 @@ def main(
         n_splits=n_splits,
         verbose=True,
         filter_condition=filter_condition,
-        classifiers=classifier_list,
-        image_id_col=image_id_col,
     )
     # Save configuration for reproducibility
     config = {

@@ -24,13 +24,15 @@
                 "--metadata-path",
                 "${workspaceFolder}/data/processed/LungHist700_tiled/LungHist700_20x/metadata.csv",
                 "--task",
-                "superclass",
+                "class_name",
                 "--superclass-to-keep",
-                "all",
+                "aca",
                 "--aggregation-method",
                 "none",
                 "--output-dir",
                 "${workspaceFolder}/reports/results/debug",
+                "--classifiers",
+                "histogram_cluster",
             ]
         },
         {
@@ -46,13 +48,15 @@
                 "--metadata-path",
                 "${workspaceFolder}/data/processed/LungHist700/metadata.csv",
                 "--task",
-                "class_name",
+                "superclass",
                 "--superclass-to-keep",
-                "aca",
+                "all",
                 "--aggregation-method",
                 "centercrop",
                 "--output-dir",
                 "${workspaceFolder}/reports/results/debug",
+                "--classifiers",
+                "knn,linear"
             ]
         },
         {

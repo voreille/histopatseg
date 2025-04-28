@@ -6,14 +6,15 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Required parameters
-EMBEDDINGS_PATH="data/processed/embeddings/lunghist700_20x_H-optimus-1_centercrop_embeddings.npz"
+EMBEDDINGS_PATH="data/processed/embeddings/lunghist700_20x_UNI2_centercrop_embeddings.npz"
 METADATA_PATH="data/processed/LungHist700/metadata.csv"
 
 # Optional parameters (using defaults from the script)
-TASK="superclass"
+TASK="class_name"
 SUPERCLASS_TO_KEEP="all"
 AGGREGATION_METHOD="centercrop"
 N_SPLITS=4
+CLASSIFIERS="knn,linear"
 
 
 # Extract model name from embeddings filename
@@ -24,7 +25,7 @@ DATASET_NAME=$(echo "$METADATA_PATH" | grep -oP '(?<=data/processed/)[^/]+' || e
 DATASET_NAME=${DATASET_NAME%%_*}  # Take only the first part before underscore
 
 # Construct dynamic OUTPUT_DIR based on parameters
-OUTPUT_DIR="reports/results/${DATASET_NAME}/H-optimus-1/${MODEL_NAME}_task_${TASK}__${SUPERCLASS_TO_KEEP}__agg_${AGGREGATION_METHOD}__n_splits_${N_SPLITS}"
+OUTPUT_DIR="reports/results/${DATASET_NAME}/UNI2/${MODEL_NAME}_task_${TASK}__${SUPERCLASS_TO_KEEP}__agg_${AGGREGATION_METHOD}__n_splits_${N_SPLITS}"
 
 echo "Output will be saved to: ${OUTPUT_DIR}"
 
@@ -39,4 +40,5 @@ python -m histopatseg.evaluation.evaluate_foundation_models \
   --superclass-to-keep "${SUPERCLASS_TO_KEEP}" \
   --aggregation-method "${AGGREGATION_METHOD}" \
   --output-dir "${OUTPUT_DIR}" \
-  --n-splits "${N_SPLITS}"
+  --n-splits "${N_SPLITS}" \
+  --classifiers "${CLASSIFIERS}"
