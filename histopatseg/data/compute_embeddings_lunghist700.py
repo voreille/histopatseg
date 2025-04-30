@@ -42,28 +42,40 @@ def compute_embeddings(model, dataloader, device="cuda", autocast_dtype=torch.fl
 @click.option(
     "--num-workers", default=0, show_default=True, help="Number of workers for dataloader."
 )
-@click.option("--center-crop", is_flag=True, help="Use center crop for tiles.")
-def main(output_file, tiles_dir, model_name, gpu_id, batch_size, num_workers, center_crop):
+@click.option("--tile-size", default=224, help="Tile size for center crop")
+@click.option("--is-raw-data", is_flag=True, help="wether the data is raw or not.")
+def main(output_file, tiles_dir, model_name, gpu_id, batch_size, num_workers, tile_size, is_raw_data):
     """Simple CLI program to greet someone"""
 
     device = get_device(gpu_id)
     tiles_dir = Path(tiles_dir).resolve()
 
     output_file = Path(output_file).resolve()
-    tile_paths = list(tiles_dir.glob("*.png"))
+    if is_raw_data:
+        tile_paths = list(tiles_dir.rglob("*.jpg"))
+    else:
+        tile_paths = list(tiles_dir.glob("*.png"))
 
     click.echo(f"Loading model {model_name} on device {device}.")
 
     model, transform, embedding_dim, autocast_dtype = load_model(model_name, device)
-    if center_crop:
-        click.echo("Using center crop for tiles.")
-        transform = transforms.Compose(
-            [
-                transforms.Resize(224),
-                transforms.CenterCrop((224, 224)),
-                transform,
-            ]
+    if model_name == "H-optimus-0" or model_name == "H-optimus-1":
+        normalize = transforms.Normalize(
+            mean=(0.707223, 0.578729, 0.703617),
+            std=(0.211883, 0.230117, 0.177517),
         )
+    else:
+        click.echo("Using default ImageNet normalization for tiles.")
+        normalize = transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+
+    transform = transforms.Compose(
+        [
+            transforms.Resize(tile_size),
+            transforms.CenterCrop((tile_size, tile_size)),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    )
 
     tile_dataset = TileDataset(tile_paths, transform=transform)
     dataloader = DataLoader(
