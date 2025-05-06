@@ -12,6 +12,35 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Compute TCGA-UT Prototypes",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/data/compute_prototype_tcga_ut.py",
+            "args": [
+                "--tcga-ut-dir",
+                "data/tcga-ut",
+                "--n-wsi",
+                "32",
+                "--output-h5",
+                "data/processed/prototypes_tcga_ut/uni2_prototypes__n_wsi_32.h5",
+                "--magnification-key",
+                "0",
+                "--model-name",
+                "UNI2",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "256",
+                "--random-state",
+                "42"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
             "name": "Evaluate Foundation Models on LungHist700",
             "type": "debugpy",
             "request": "launch",

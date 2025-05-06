@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+import random
 
 import numpy as np
 import pandas as pd
@@ -31,13 +33,13 @@ def get_class_weights(
     The function filters the metadata based on the resolution (e.g., '20x' or '40x'),
     computes the frequency for each class (from the 'task' column),
     and returns a tensor of weights in the order defined by CLASS_MAPPING.
-    
+
     Weights are computed as the inverse frequency and then normalized such that
     the sum of weights equals the number of classes.
-    
+
     Args:
         metadata (pd.DataFrame): Metadata DataFrame with columns including "resolution" and "class_name".
-        
+
     Returns:
         torch.Tensor: 1D tensor of normalized class weights ordered by CLASS_MAPPING.
     """
@@ -48,10 +50,7 @@ def get_class_weights(
 
     # Compute counts for each class defined in CLASS_MAPPING
     # Ensure that we cover all classes even if some counts are zero.
-    counts = {
-        cls: (metadata[class_column] == cls).sum()
-        for cls in class_mapping
-    }
+    counts = {cls: (metadata[class_column] == cls).sum() for cls in class_mapping}
 
     # Order the classes based on the indices in CLASS_MAPPING
     ordered_classes = sorted(class_mapping, key=lambda k: class_mapping[k])
@@ -70,10 +69,7 @@ def get_class_weights(
     normalized_weights = raw_weights / np.sum(raw_weights) * num_classes
 
     if return_dict:
-        return {
-            cls: weight
-            for cls, weight in zip(ordered_classes, normalized_weights)
-        }
+        return {cls: weight for cls, weight in zip(ordered_classes, normalized_weights)}
 
     return torch.FloatTensor(normalized_weights)
 
@@ -87,6 +83,24 @@ def find_tile_path(tile_id, data_dir, recursive=False, extension=".png"):
         matches = list(data_dir.glob(filename))
 
     if len(matches) != 1:
-        raise ValueError(f"Matching error for "
-                         f"{filename} with {matches} as matches.")
+        raise ValueError(f"Matching error for {filename} with {matches} as matches.")
     return str(matches[0])
+
+
+def seed_everything(seed: int):
+    """
+    Set seeds for reproducibility across multiple libraries.
+
+    Args:
+        seed (int): Seed value to use for random number generators
+    """
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    print(f"Random seed set to {seed}")

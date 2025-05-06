@@ -6,7 +6,8 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Required parameters
-EMBEDDINGS_PATH="data/processed/embeddings/lunghist700_20x_UNI2_centercrop_embeddings.npz"
+# EMBEDDINGS_PATH="data/processed/embeddings/lunghist700_20x_UNI2_centercrop_embeddings.npz"
+EMBEDDINGS_PATH="data/processed/embeddings/lunghist700_raw_UNI2_centercrop_ts_1204_embeddings.npz"
 METADATA_PATH="data/processed/LungHist700/metadata.csv"
 
 # Optional parameters (using defaults from the script)
