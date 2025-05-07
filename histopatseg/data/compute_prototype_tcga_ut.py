@@ -5,6 +5,7 @@ import click
 import h5py
 import numpy as np
 import torch
+from torchvision import transforms
 from tqdm import tqdm
 
 from histopatseg.data.dataset import TileDataset
@@ -24,6 +25,22 @@ from histopatseg.utils import get_device, seed_everything
 @click.option("--batch-size", default=64, help="Batch size for processing images.")
 @click.option("--random-state", default=42, help="Random state for reproducibility.")
 @click.option("--num-workers", default=24, help="Number of workers for data loading.")
+@click.option(
+    "--exclude-cancers",
+    default="",
+    help="Comma-separated list of cancer names to exclude (e.g., 'Lung_normal,Lung_adenocarcinoma').",
+)
+@click.option(
+    "--pre-centercrop-size",
+    default=None,
+    type=click.INT,
+    help="Size of the center crop before applying default transforms. If None, no center crop is applied.",
+)
+@click.option(
+    "--feature-transformation",
+    default="centering,normalization",
+    help="Feature transformation to apply.",
+)
 def main(
     tcga_ut_dir,
     n_wsi,
@@ -34,10 +51,15 @@ def main(
     batch_size,
     random_state,
     num_workers,
+    exclude_cancers,
+    pre_centercrop_size,
+    feature_transformation,
 ):
     """Compute average embeddings for each cancer type in the TCGA-UT dataset"""
     device = get_device(gpu_id=gpu_id)
     seed_everything(seed=random_state)
+    excluded_cancers = set(exclude_cancers.split(",")) if exclude_cancers else set()
+    feature_transformations = feature_transformation.split(",")
 
     tcga_ut_dir = Path(tcga_ut_dir).resolve()
 
@@ -46,10 +68,23 @@ def main(
         model_name=model_name, device=device
     )
     model.eval()
+    click.echo(f"Model {model_name} loaded with embedding dimension {embedding_dim}")
+    if pre_centercrop_size is not None:
+        click.echo(f"Precenter crop size: {pre_centercrop_size}")
+        preprocess = transforms.Compose(
+            [
+                transforms.CenterCrop(pre_centercrop_size),
+                preprocess,
+            ]
+        )
+
+    click.echo(f"Preprocessing function: {preprocess}")
 
     # Get cancer types (top-level directories)
-    cancer_types = [d for d in tcga_ut_dir.iterdir() if d.is_dir()]
-    click.echo(f"Found {len(cancer_types)} cancer types")
+    cancer_types = [
+        d for d in tcga_ut_dir.iterdir() if d.is_dir() and d.name not in excluded_cancers
+    ]
+    click.echo(f"Computing prototypes for {len(cancer_types)} cancer types")
 
     # Dictionary to store embeddings for each cancer type
     cancer_embeddings = defaultdict(np.ndarray)
@@ -127,12 +162,17 @@ def main(
     # Compute average embeddings for each cancer type
     cancer_prototypes = {}
     for cancer_name, embeddings in cancer_embeddings.items():
-        embeddings = embeddings - mean_embeddings
-        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+        if "centering" in feature_transformations:
+            embeddings = embeddings - mean_embeddings
+        if "normalization" in feature_transformations:
+            embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
         cancer_prototypes[cancer_name] = np.mean(embeddings, axis=0)
         click.echo(f"{cancer_name}: {len(embeddings)} tiles")
 
     # Save prototypes to HDF5 file
+    output_h5 = Path(output_h5).resolve()
+    output_h5.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(output_h5, "w") as f:
         f.create_dataset("mean_embedding", data=mean_embeddings)
         for cancer_name, prototype in cancer_prototypes.items():

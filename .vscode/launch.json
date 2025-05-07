@@ -12,13 +12,34 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug compute_prototype_LungHist700",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/data/compute_prototype_LungHist700.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--lunghist700-dir",
+                "data/processed/LungHist700/LungHist700_20x",
+                "--output-h5",
+                "data/processed/prototype_lunghist700/uni2_prototypes.h5",
+                "--model-name",
+                "UNI2",
+                "--gpu-id",
+                "0",
+                "--batch-size",
+                "5",
+                "--num-workers",
+                "0",
+            ]
+        },
+        {
             "name": "Compute TCGA-UT Prototypes",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/histopatseg/data/compute_prototype_tcga_ut.py",
             "args": [
                 "--tcga-ut-dir",
-                "data/tcga-ut",
+                "/mnt/nas7/data/Personal/Valentin/tcga-ut",
                 "--n-wsi",
                 "32",
                 "--output-h5",
@@ -32,7 +53,9 @@
                 "--batch-size",
                 "256",
                 "--random-state",
-                "42"
+                "42",
+                "--feature-transformation",
+                "none",
             ],
             "console": "integratedTerminal",
             "justMyCode": false,
