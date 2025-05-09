@@ -148,8 +148,8 @@ def main(
             for batch in tqdm(dataloader, desc=f"Processing {cancer_name}"):
                 images, _ = batch
                 images = images.to(device)
-                with torch.autocast(device_type="cuda", dtype=autocast_dtype):
-                    embeddings = model(images)
+                # with torch.autocast(device_type="cuda", dtype=autocast_dtype):
+                embeddings = model(images)
                 wsi_embeddings.append(embeddings.cpu().numpy())
 
         wsi_embeddings = np.vstack(wsi_embeddings)

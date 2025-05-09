@@ -12,7 +12,7 @@ from histopatseg.constants import CLASS_MAPPING, SUBCLASS_MAPPING, SUPERCLASS_MA
 
 
 class TileDataset(Dataset):
-    def __init__(self, tile_paths, transform=None):
+    def __init__(self, tile_paths, transform=None, return_path=False):
         """
         Tile-level dataset that returns individual tile images from a list of paths.
 
@@ -22,6 +22,7 @@ class TileDataset(Dataset):
         """
         self.tile_paths = tile_paths
         self.transform = transform
+        self.return_path = return_path
 
     def __len__(self):
         return len(self.tile_paths)
@@ -33,7 +34,12 @@ class TileDataset(Dataset):
         if self.transform:
             image = self.transform(image)  # Apply augmentation
 
-        return image, self.tile_paths[idx].stem
+        if self.return_path:
+            tile_id = str(tile_path)
+        else:
+            tile_id = tile_path.stem
+
+        return image, tile_id
 
 
 class LabeledTileDataset(Dataset):

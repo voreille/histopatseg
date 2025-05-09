@@ -52,6 +52,17 @@ def load_model(model_name, device, apply_torch_scripting=True):
         embedding_dim = 1536
         autocast_dtype = torch.float16
 
+    elif model_name == "UNI1":
+        model = timm.create_model(
+            "hf-hub:MahmoodLab/uni",
+            pretrained=True,
+            init_values=1e-5,
+            dynamic_img_size=True,
+        )
+        preprocess = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
+        embedding_dim = 1024
+        autocast_dtype = torch.bfloat16
+
     elif model_name == "UNI2":
         timm_kwargs = {
             "img_size": 224,
@@ -68,28 +79,18 @@ def load_model(model_name, device, apply_torch_scripting=True):
             "reg_tokens": 8,
             "dynamic_img_size": True,
         }
-        model = timm.create_model(
-            "hf-hub:MahmoodLab/UNI2-h", pretrained=True, **timm_kwargs
-        )
-        preprocess = create_transform(
-            **resolve_data_config(model.pretrained_cfg, model=model)
-        )
+        model = timm.create_model("hf-hub:MahmoodLab/UNI2-h", pretrained=True, **timm_kwargs)
+        preprocess = create_transform(**resolve_data_config(model.pretrained_cfg, model=model))
         embedding_dim = 1536
         autocast_dtype = torch.bfloat16
     elif "prov-gigapath" == model_name:
-        model = timm.create_model(
-            "hf_hub:prov-gigapath/prov-gigapath", pretrained=True
-        )
+        model = timm.create_model("hf_hub:prov-gigapath/prov-gigapath", pretrained=True)
         preprocess = transforms.Compose(
             [
-                transforms.Resize(
-                    256, interpolation=transforms.InterpolationMode.BICUBIC
-                ),
+                transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)
-                ),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
             ]
         )
 
