@@ -12,10 +12,29 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Fit ProtoNet to Enriched CPTAC",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/mining/fit_protonet_to_enriched_cptac.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--tiles-dir",
+                "data/processed/cptac_enriched_tiles_luad_differentiation",
+                "--output-path",
+                "models/protonet/cptac_enriched_uni2_20x_luad_differentiation_5_patterns.pt",
+                "--model-name",
+                "UNI2",
+                "--batch-size",
+                "256",
+                "--num-workers",
+                "8"
+            ]
+        },
+        {
             "name": "Python: Enrich Tiles CPTAC CLI",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/histopatseg/data/enrich_tiles_cptac.py",
+            "program": "${workspaceFolder}/histopatseg/mining/enrich_tiles_cptac.py",
             "console": "integratedTerminal",
             "args": [
                 "--csv-cptac-luad",
@@ -24,18 +43,10 @@
                 "/mnt/nas6/data/CPTAC/CPTAC-LUAD_v12/LUAD/",
                 "--cptac-embeddings-path",
                 "data/processed/mahmoodlab/UNI2-h_features/CPTAC/",
-                "--lunghist700-csv-path",
-                "data/processed/LungHist700_tiled/LungHist700_20x/metadata.csv",
-                "--lunghist700-embeddings-path",
-                "data/processed/embeddings/LungHist700/lunghist700_20x_UNI2_embeddings.npz",
+                "--protonet-path",
+                "models/protonet/lunghist700_luad_differentiation_uni2_20x.pt",
                 "--output-tiles-dir",
-                "data/processed/cptac_enriched_tiles",
-                "--output-embeddings-dir",
-                "data/processed/cptac_enriched_tiles/yo.h5",
-                "--gpu-id",
-                "0",
-                "--batch-size",
-                "8"
+                "data/processed/cptac_enriched_tiles_luad_differentiation",
             ]
         },
         {

@@ -30,11 +30,13 @@ class ProtoNet:
         metric: str = "L2",
         center_feats: bool = True,
         normalize_feats: bool = True,
+        label_map: dict = None,
     ) -> None:
         self.index_type = index_type
         self.metric = metric
         self.center_feats = center_feats
         self.normalize_feats = normalize_feats
+        self.label_map = label_map
 
     def fit(self, X: torch.Tensor, y: torch.Tensor, verbose: bool = True) -> None:
         """
@@ -53,6 +55,10 @@ class ProtoNet:
         assert (
             prototype_labels.max().item() == len(prototype_labels) - 1
         )  # For C classes, y must be in [0, C-1]
+
+        if self.label_map is not None:
+            assert len(prototype_labels) == len(self.label_map.keys())
+
         self.prototype_labels = prototype_labels
 
         if verbose:
@@ -286,6 +292,51 @@ class ProtoNet:
         index.add(self.prototype_embeddings.numpy())
         D, I = index.search(feats_query.numpy(), topk)
         return D, I
+
+    def save(self, filepath: str) -> None:
+        """
+        Save the ProtoNet instance to a file.
+
+        Args:
+            filepath (str): Path to the file where the instance will be saved.
+        """
+        state = {
+            "index_type": self.index_type,
+            "metric": self.metric,
+            "center_feats": self.center_feats,
+            "normalize_feats": self.normalize_feats,
+            "prototype_labels": self.prototype_labels,
+            "prototype_embeddings": self.prototype_embeddings,
+            "mean": self.mean,
+            "label_map": self.label_map,
+        }
+        torch.save(state, filepath)
+        print(f"ProtoNet instance saved to {filepath}")
+
+    @classmethod
+    def load(cls, filepath: str) -> "ProtoNet":
+        """
+        Load a ProtoNet instance from a file.
+
+        Args:
+            filepath (str): Path to the file where the instance is saved.
+
+        Returns:
+            ProtoNet: The loaded ProtoNet instance.
+        """
+        state = torch.load(filepath)
+        instance = cls(
+            index_type=state["index_type"],
+            metric=state["metric"],
+            center_feats=state["center_feats"],
+            normalize_feats=state["normalize_feats"],
+            label_map=state.get("label_map", None),
+        )
+        instance.prototype_labels = state["prototype_labels"]
+        instance.prototype_embeddings = state["prototype_embeddings"]
+        instance.mean = state["mean"]
+        print(f"ProtoNet instance loaded from {filepath}")
+        return instance
 
 
 def prototype_topk_vote(clf, X_query, topk: int = 5) -> int:
