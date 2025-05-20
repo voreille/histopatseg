@@ -24,11 +24,11 @@ def compute_embeddings(model, dataloader, device="cuda", autocast_dtype=torch.fl
     model.eval()
     embeddings, tile_ids = [], []
 
-    with torch.autocast(device_type="cuda", dtype=autocast_dtype):
-        with torch.inference_mode():
-            for images, batch_tile_ids in tqdm(dataloader, desc="Computing embeddings"):
-                embeddings.append(model(images.to(device)).cpu())
-                tile_ids.extend(batch_tile_ids)
+    # with torch.autocast(device_type="cuda", dtype=autocast_dtype):
+    with torch.inference_mode():
+        for images, batch_tile_ids in tqdm(dataloader, desc="Computing embeddings"):
+            embeddings.append(model(images.to(device)).cpu())
+            tile_ids.extend(batch_tile_ids)
 
     return torch.cat(embeddings, dim=0).numpy(), np.array(tile_ids)
 
@@ -76,7 +76,7 @@ def main(output_file, tiles_dir, model_name, gpu_id, batch_size, num_workers, ti
             normalize,
         ]
     )
-
+    click.echo(f"Transform: {transform}")
     tile_dataset = TileDataset(tile_paths, transform=transform)
     dataloader = DataLoader(
         tile_dataset,

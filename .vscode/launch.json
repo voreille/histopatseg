@@ -12,6 +12,25 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python: Fit ProtoNet to TCGA UT",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/mining/fit_protonet_to_tcga_ut.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--tiles-dir",
+                "/mnt/nas7/data/Personal/Valentin/tcga-ut",
+                "--output-path",
+                "models/protonet/tcga_ut_nsclc_subtyping_with_normal_20x_nwsi_32.pt",
+                "--model-name",
+                "UNI2",
+                "--batch-size",
+                "256",
+                "--num-workers",
+                "8"
+            ]
+        },
+        {
             "name": "Python: Fit ProtoNet to Enriched CPTAC",
             "type": "debugpy",
             "request": "launch",
@@ -19,9 +38,9 @@
             "console": "integratedTerminal",
             "args": [
                 "--tiles-dir",
-                "data/processed/cptac_enriched_tiles_luad_differentiation",
+                "data/processed/enriched_tiles/CPTAC_PN_LungHist700_complete_TS_256/",
                 "--output-path",
-                "models/protonet/cptac_enriched_uni2_20x_luad_differentiation_5_patterns.pt",
+                "models/protonet/cptac_enriched_uni2_20x_luad_differentiation_5_patterns_with_normal.pt",
                 "--model-name",
                 "UNI2",
                 "--batch-size",
@@ -42,11 +61,13 @@
                 "--raw-wsi-dir",
                 "/mnt/nas6/data/CPTAC/CPTAC-LUAD_v12/LUAD/",
                 "--cptac-embeddings-path",
-                "data/processed/mahmoodlab/UNI2-h_features/CPTAC/",
+                "data/processed/mahmoodlab/UNI2-h_features/CPTAC/CPTAC_LUAD/",
                 "--protonet-path",
-                "models/protonet/lunghist700_luad_differentiation_uni2_20x.pt",
-                "--output-tiles-dir",
-                "data/processed/cptac_enriched_tiles_luad_differentiation",
+                "models/protonet/lunghist700_complete_uni2_20x_ts_256.pt",
+                "--output-dir",
+                "data/processed/enriched_tiles/CPTAC_PN_LungHist700_complete_TS_256",
+                "--lunghist700-task",
+                "complete",
             ]
         },
         {

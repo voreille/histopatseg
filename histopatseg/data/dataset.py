@@ -10,19 +10,50 @@ import torchvision.transforms.functional as TF
 
 from histopatseg.constants import CLASS_MAPPING, SUBCLASS_MAPPING, SUPERCLASS_MAPPING
 
+# class TileDataset(Dataset):
+#     def __init__(self, tile_paths, transform=None, return_path=False):
+#         """
+#         Tile-level dataset that returns individual tile images from a list of paths.
+
+#         Args:
+#             tile_paths (list): List of paths to tile images for a WSI.
+#             transform (callable, optional): Transform to apply to each tile image.
+#         """
+#         self.tile_paths = tile_paths
+#         self.transform = transform
+#         self.return_path = return_path
+
+#     def __len__(self):
+#         return len(self.tile_paths)
+
+#     def __getitem__(self, idx):
+#         tile_path = self.tile_paths[idx]
+#         image = Image.open(tile_path).convert("RGB")  # Load as PIL image
+
+#         if self.transform:
+#             image = self.transform(image)  # Apply augmentation
+
+#         if self.return_path:
+#             tile_id = str(tile_path)
+#         else:
+#             tile_id = tile_path.stem
+
+#         return image, tile_id
+
 
 class TileDataset(Dataset):
-    def __init__(self, tile_paths, transform=None, return_path=False):
+    def __init__(self, tile_paths, preprocess=None):
         """
         Tile-level dataset that returns individual tile images from a list of paths.
 
         Args:
-            tile_paths (list): List of paths to tile images for a WSI.
-            transform (callable, optional): Transform to apply to each tile image.
+            tile_paths (list or np.ndarray): List or array of paths to tile images for a WSI.
+            preprocess (callable, optional): Preprocessing to apply to each tile image.
         """
+        if not isinstance(tile_paths, np.ndarray):
+            tile_paths = np.array(tile_paths, dtype=str)
         self.tile_paths = tile_paths
-        self.transform = transform
-        self.return_path = return_path
+        self.preprocess = preprocess
 
     def __len__(self):
         return len(self.tile_paths)
@@ -31,15 +62,10 @@ class TileDataset(Dataset):
         tile_path = self.tile_paths[idx]
         image = Image.open(tile_path).convert("RGB")  # Load as PIL image
 
-        if self.transform:
-            image = self.transform(image)  # Apply augmentation
+        if self.preprocess:
+            image = self.preprocess(image)
 
-        if self.return_path:
-            tile_id = str(tile_path)
-        else:
-            tile_id = tile_path.stem
-
-        return image, tile_id
+        return image, str(tile_path)
 
 
 class LabeledTileDataset(Dataset):

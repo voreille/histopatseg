@@ -56,7 +56,7 @@ def get_fitted_protonet_lunghist700(
     labels_train = df[label_col].values
     labels_train = np.array([label_map_lunghist700[task][label] for label in labels_train])
 
-    protonet = ProtoNet()
+    protonet = ProtoNet(label_map=label_map_lunghist700[task])
     protonet.fit(
         torch.tensor(embeddings_train, dtype=torch.float32),
         torch.tensor(labels_train, dtype=torch.long),

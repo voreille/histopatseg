@@ -14,12 +14,13 @@ fi
 
 INPUT_DIR=$LUNGHIST700_RAW_PATH
 MAGNIFICATION=20
+TILE_SIZE=256
 
 
 python histopatseg/data/tile_LungHist700.py \
   --input-dir $INPUT_DIR \
-  --output-dir data/processed/LungHist700_tiled/LungHist700_${MAGNIFICATION}x\
-  --tile-size 224 \
+  --output-dir data/processed/LungHist700_tiled/LungHist700_${MAGNIFICATION}x_TS_${TILE_SIZE} \
+  --tile-size $TILE_SIZE \
   --desired-magnification $MAGNIFICATION \
   --generate-outlines \
   --num-workers 8
