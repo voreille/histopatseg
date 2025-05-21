@@ -12,6 +12,23 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Debug compute_mask_from_annotations CLI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/histopatseg/data/compute_mask_from_annotations.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--annotations-dir",
+                "data/raw/Manual_Annotations_TCGA",
+                "--raw-wsi-dir",
+                "/home/val/dump/",
+                "--output-dir",
+                "data/processed/test_masks_from_annotations",
+                "--mask-magnification",
+                "1.5"
+            ]
+        },
+        {
             "name": "Python: Fit ProtoNet to TCGA UT",
             "type": "debugpy",
             "request": "launch",
